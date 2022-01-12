@@ -35,10 +35,12 @@ library(whitebox)
 * for each segment, create shortest path line between points
 
 ```{r}
-pt1a <- riv_cent_sf %>% dplyr::filter(pt_id == 198)
-pt1b <- riv_cent_sf %>% dplyr::filter(pt_id == 511)
+begin_id = 803
+end_id = 370
+pt1a <- riv_cent_sf %>% dplyr::filter(pt_id == begin_id)
+pt1b <- riv_cent_sf %>% dplyr::filter(pt_id == end_id)
 
-pts_sf <- riv_cent_sf %>% dplyr::filter(pt_id %in% c(198, 511))
+pts_sf <- riv_cent_sf %>% dplyr::filter(pt_id %in% c(begin_id, end_id))
 pts_dir <-glue('pts/{my_aop_site}_{my_aop_yr}')
 fs::dir_create(pts_dir)
 line_filename <- glue('{pts_dir}/{my_reflectance_id}-riverline_01-pts.shp')
@@ -85,6 +87,21 @@ line_sf %>% st_write(line_filename, append = FALSE)
 plot(my_spath_sp)
 plot(raster(my_spath)) # mask mndwi with this raster? 
 
+my_spath_rast <- terra::rast(raster(my_spath))
+my_spath_mndwi <- terra::mask(my_mndwi, my_spath_rast, inverse = FALSE, updatevalue = NA)
+
+ ggplot() +
+    geom_stars(data = st_as_stars(my_spath_mndwi)) +
+    colorspace::scale_fill_continuous_diverging(palette = 'Tropic', mid = 0, rev = TRUE) +
+     # geom_sf(data = riv_smooth, fill = NA, col = 'blue') +
+    geom_sf(data = pt1a) +
+    geom_sf(data = pt1b) +
+    # geom_sf(data = line_sf, col = 'red') +
+    theme_void() +
+   theme(legend.position = 'bottom')
+ 
+# ggsave('test.pdf', width = 20, height = 20)
+ 
 ggplot() +
   geom_sf(data = riv_smooth, fill = NA, col = 'blue', lwd = 0.1) +
   geom_sf(data = pt1a) +
@@ -92,16 +109,48 @@ ggplot() +
   geom_sf(data = line_sf, col = 'red') +
   theme_void() 
 
- ggplot() +
+```
+
+```{r}
+aa <- ggplot() +
     geom_stars(data = st_as_stars(my_mndwi)) +
-    scico::scale_fill_scico(palette = 'grayC', direction = 1) +
-     geom_sf(data = riv_smooth, fill = NA, col = 'blue') +
+       colorspace::scale_fill_continuous_diverging(palette = 'Cork', mid = 0, rev = TRUE) +
+    # scico::scale_fill_scico(palette = 'grayC', direction = 1) +
+     geom_sf(data = riv_smooth, fill = NA, col = 'black') +
     geom_sf(data = pt1a) +
     geom_sf(data = pt1b) +
     geom_sf(data = line_sf, col = 'red') +
     theme_void() +
-   theme(legend.position = 'bottom')
+   theme(legend.position = 'bottom') +
+   ggtitle('')
 
+bb <- ggplot() +
+    geom_stars(data = st_as_stars(my_mndwi)) +
+       colorspace::scale_fill_continuous_diverging(palette = 'Cork', mid = 0, rev = TRUE) +
+    # scico::scale_fill_scico(palette = 'grayC', direction = 1) +
+     geom_sf(data = riv_smooth, fill = NA, col = NA) +
+    # geom_sf(data = pt1a) +
+    # geom_sf(data = pt1b) +
+    # geom_sf(data = line_sf, col = 'red') +
+    theme_void() +
+   theme(legend.position = 'bottom') +
+  ggtitle(glue('{my_reflectance_id} {my_aop_yr}'))
+
+cc <- ggplot() +
+    geom_stars(data = st_as_stars(my_mndwi)) +
+       colorspace::scale_fill_continuous_diverging(palette = 'Cork', mid = 0, rev = TRUE) +
+    # scico::scale_fill_scico(palette = 'grayC', direction = 1) +
+     geom_sf(data = riv_smooth, fill = NA, col = 'black') +
+    # geom_sf(data = pt1a) +
+    # geom_sf(data = pt1b) +
+    # geom_sf(data = line_sf, col = 'red') +
+    theme_void() +
+   theme(legend.position = 'bottom') +
+   ggtitle('')
+
+cowplot::plot_grid(bb, cc, aa, nrow = 1)
+
+ggsave(glue('figs/{my_reflectance_id}-{my_aop_yr}-centerline.png'), width = 12)
 ```
 
 ```{r}
@@ -113,7 +162,7 @@ aa <- ggplot() +
     coord_sf(xlim = c(my_bbox[1], my_bbox[3]), ylim = c(my_bbox[2], my_bbox[4])) +
    theme(legend.position = 'none')
 bb <- ggplot() +
-    geom_sf(data = riv_smooth, fill = NA, col = 'blue') +
+    # geom_sf(data = riv_smooth, fill = NA, col = 'blue') +
     geom_sf(data = pt1a) +
     geom_sf(data = pt1b) +
     geom_sf(data = line_sf, col = 'red') +
@@ -122,6 +171,17 @@ bb <- ggplot() +
    theme(legend.position = 'bottom')
 
 cowplot::plot_grid(aa, bb)
+
+
+```
+
+compare polygons from multiple years for same image?
+
+```{r}
+water_sf <- fs::dir_ls('polygons', glob = glue('*BONA*.shp'), recurse = TRUE) %>% purrr::map(~st_read(.x)) %>% bind_rows()
+
+ggplot() +
+  geom_sf(data = water_sf, aes(col = factor(aop_yr), fill = factor(aop_yr)), alpha = 0.1) 
 ```
 
 connect lines from multiple images?

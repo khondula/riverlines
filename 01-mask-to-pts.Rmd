@@ -28,10 +28,11 @@ library(whitebox)
 
 
 ```{r}
-my_flrefl_file <- 'NEON_D03_JERC_DP3_738000_3463000_reflectance.h5'
+my_flrefl_file <- 'NEON_D19_BONA_DP3_477000_7223000_reflectance.h5'
+# my_flrefl_file <- 'NEON_D03_JERC_DP3_738000_3463000_reflectance.h5'
 # my_flrefl_file <- 'NEON_D03_JERC_DP3_739000_3463000_reflectance.h5'
 my_h5_file <- my_flrefl_file
-my_aop_site <- 'JERC'
+my_aop_site <- 'BONA'
 my_aop_yr <- 2019
 ```
 
@@ -122,9 +123,14 @@ riv_mask2 = focal(riv_mask1,
                    w = matrix(1, nrow = 3, ncol = 3), 
                    fun = max)
 ggplot() +
-    geom_stars(data = st_as_stars(riv_mask2)) +
+    geom_stars(data = st_as_stars(riv_mask1)) +
     theme_void() +
    theme(legend.position = 'bottom')
+
+
+any_water_check <- max(terra::minmax(riv_mask)) > 0 # check if there is any water in image!
+
+# IF SO, proceed... 
 
 # then raster to polygon
 riv_polygon <- riv_mask2 %>% terra::as.polygons()
@@ -217,6 +223,14 @@ ggplot() +
     geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
   theme_void() 
 
+
+
+polygons_dir <-glue('polygons/{my_aop_site}_{my_aop_yr}')
+fs::dir_create(polygons_dir)
+polygon_filename <- glue('{polygons_dir}/{my_reflectance_id}-riversmooth.shp')
+riv_smooth %>% 
+  dplyr::mutate(aop_site = my_aop_site, aop_yr = my_aop_yr, refl_id = my_reflectance_id) %>% 
+  st_write(polygon_filename, append = FALSE)
 ```
 
 ```{r}
@@ -245,12 +259,41 @@ plot(riv_cent_sf)
 # helper map for point ID
 
 ```{r}
+my_reflectance_id
+```
+
+
+```{r}
 leaflet() %>%
   addTiles(group = 'bg') %>%
   addProviderTiles(providers$Esri.WorldImagery, group = 'esri') %>%
+  addPolygons(data = st_transform(riv_smooth, 4326), color = 'cyan', fillOpacity = 0.1) %>%
   addMarkers(data = st_transform(riv_cent_sf, 4326),   
              clusterOptions = markerClusterOptions(),
              group = 'pts', popup = ~glue('point {pt_id}')) %>%
   addLayersControl(overlayGroups = c('bg','pts', 'esri'))
+```
+
+```{r}
+bb <- ggplot() +
+    geom_stars(data = st_as_stars(my_mndwi)) +
+       colorspace::scale_fill_continuous_diverging(palette = 'Cork', mid = 0, rev = TRUE) +
+     geom_sf(data = riv_smooth, fill = NA, col = NA) +
+    theme_void() +
+   theme(legend.position = 'bottom') +
+  ggtitle(glue('{my_reflectance_id} {my_aop_yr}'))
+
+cc <- ggplot() +
+    geom_stars(data = st_as_stars(my_mndwi)) +
+       colorspace::scale_fill_continuous_diverging(palette = 'Cork', mid = 0, rev = TRUE) +
+     geom_sf(data = riv_smooth, fill = NA, col = 'black') +
+    theme_void() +
+   theme(legend.position = 'bottom') +
+   ggtitle('')
+
+cowplot::plot_grid(bb, cc, nrow = 1)
+
+ggsave(glue('figs/{my_reflectance_id}-{my_aop_yr}.png'), width = 12)
+
 ```
 
