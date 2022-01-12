@@ -1,0 +1,141 @@
+---
+title: "centerlines"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Find river centerline from a surface reflectance file
+
+```{r}
+library(terra)
+library(hdf5r)
+library(dplyr)
+library(sf)
+library(glue)
+library(stringr)
+library(stars)
+library(scico)
+library(ggplot2)
+library(smoothr)
+library(gdistance)
+library(leaflet)
+library(whitebox)
+
+```
+
+
+
+# AFTER points identified 
+
+* record point IDs for line segments in separate spreadsheet
+* then read in table and filter to rows for reflectance file ID
+* for each segment, create shortest path line between points
+
+```{r}
+pt1a <- riv_cent_sf %>% dplyr::filter(pt_id == 198)
+pt1b <- riv_cent_sf %>% dplyr::filter(pt_id == 511)
+
+pts_sf <- riv_cent_sf %>% dplyr::filter(pt_id %in% c(198, 511))
+pts_dir <-glue('pts/{my_aop_site}_{my_aop_yr}')
+fs::dir_create(pts_dir)
+line_filename <- glue('{pts_dir}/{my_reflectance_id}-riverline_01-pts.shp')
+pts_sf %>% 
+  dplyr::select(pt_id) %>%
+  dplyr::mutate(aop_site = my_aop_site, aop_yr = my_aop_yr, refl_id = my_reflectance_id) %>% 
+  st_write(line_filename, append = FALSE)
+
+ggplot() +
+    geom_stars(data = st_as_stars(riv_sobel_mask)) +
+  geom_sf(data = pt1a) +
+  geom_sf(data = pt1b) +
+  theme_void() 
+
+# now higher threshold for area
+my_val2 <- quantile(terra::values(riv_sobel_mask), 0.2, na.rm = TRUE)
+
+rcl_matrix_area <- matrix(c(-Inf, my_val2, 1, 
+                         my_val2, Inf, NA), ncol = 3, byrow = TRUE)
+
+riv_sobel_mask20 <- terra::classify(riv_sobel_mask, rcl = rcl_matrix_area, include.lowest = FALSE)
+
+ggplot() +
+    geom_stars(data = st_as_stars(riv_sobel_mask20)) +
+    geom_sf(data = pt1a) +
+  geom_sf(data = pt1b) +
+  theme_void() 
+
+
+# least cost path from points - For each line segment
+
+riv_sobel_mask20r <- raster(riv_sobel_mask20)
+tr <- gdistance::transition(riv_sobel_mask20r, function(x) 1/mean(x), directions = 4)
+
+my_spath <- gdistance::shortestPath(tr, origin = st_coordinates(pt1a), goal = st_coordinates(pt1b))
+my_spath_sp <- gdistance::shortestPath(tr, origin = st_coordinates(pt1a), goal = st_coordinates(pt1b), output = 'SpatialLines')
+line_sf <- my_spath_sp %>% st_as_sf() %>% dplyr::mutate(aop_site = my_aop_site, aop_yr = my_aop_yr, refl_id = my_reflectance_id)
+
+lines_dir <-glue('lines/{my_aop_site}_{my_aop_yr}')
+fs::dir_create(lines_dir)
+line_filename <- glue('{lines_dir}/{my_reflectance_id}-riverline_01.shp')
+line_sf %>% st_write(line_filename, append = FALSE)
+
+plot(my_spath_sp)
+plot(raster(my_spath)) # mask mndwi with this raster? 
+
+ggplot() +
+  geom_sf(data = riv_smooth, fill = NA, col = 'blue', lwd = 0.1) +
+  geom_sf(data = pt1a) +
+  geom_sf(data = pt1b) +
+  geom_sf(data = line_sf, col = 'red') +
+  theme_void() 
+
+ ggplot() +
+    geom_stars(data = st_as_stars(my_mndwi)) +
+    scico::scale_fill_scico(palette = 'grayC', direction = 1) +
+     geom_sf(data = riv_smooth, fill = NA, col = 'blue') +
+    geom_sf(data = pt1a) +
+    geom_sf(data = pt1b) +
+    geom_sf(data = line_sf, col = 'red') +
+    theme_void() +
+   theme(legend.position = 'bottom')
+
+```
+
+```{r}
+my_bbox <- st_bbox(my_mndwi)
+aa <- ggplot() +
+    geom_stars(data = st_as_stars(my_mndwi)) +
+  scale_fill_viridis_c() +
+    theme_void() +
+    coord_sf(xlim = c(my_bbox[1], my_bbox[3]), ylim = c(my_bbox[2], my_bbox[4])) +
+   theme(legend.position = 'none')
+bb <- ggplot() +
+    geom_sf(data = riv_smooth, fill = NA, col = 'blue') +
+    geom_sf(data = pt1a) +
+    geom_sf(data = pt1b) +
+    geom_sf(data = line_sf, col = 'red') +
+    theme_void() +
+    coord_sf(xlim = c(my_bbox[1], my_bbox[3]), ylim = c(my_bbox[2], my_bbox[4])) +
+   theme(legend.position = 'bottom')
+
+cowplot::plot_grid(aa, bb)
+```
+
+connect lines from multiple images?
+
+```{r}
+lines_sf <- fs::dir_ls(lines_dir, regexp = '*.shp') %>% purrr::map(~st_read(.x)) %>% bind_rows()
+
+ggplot() +
+  geom_sf(data = lines_sf, aes(col = refl_id)) +
+  theme(legend.position = 'none')
+
+lines_sf %>% st_union() %>% ggplot() + geom_sf()
+  # dplyr::group_by(aop_site) %>% 
+  # summarise() %>% 
+  # sf::st_cast("LINESTRING")
+```
+
