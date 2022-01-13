@@ -26,142 +26,167 @@ library(whitebox)
 
 ```
 
+# whitebox part
+
+* make sure connected to scratch
 
 ```{r}
-my_flrefl_file <- 'NEON_D19_BONA_DP3_477000_7223000_reflectance.h5'
-# my_flrefl_file <- 'NEON_D03_JERC_DP3_738000_3463000_reflectance.h5'
-# my_flrefl_file <- 'NEON_D03_JERC_DP3_739000_3463000_reflectance.h5'
-my_h5_file <- my_flrefl_file
-my_aop_site <- 'BONA'
-my_aop_yr <- 2019
+data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
+fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename()
 ```
 
-# get mdnwi
-
 ```{r}
-my_h5 <- hdf5r::H5File$new(my_h5_file, mode = "r")
-# reflectance and metadata
-epsg_path <- glue::glue('{my_aop_site}/Reflectance/Metadata/Coordinate_System/EPSG Code')
-my_epsg <- my_h5[[epsg_path]]$read() %>% as.integer()
-my_epsg2 <- glue('EPSG:{my_epsg}')
-#
-my_flightline_id <- my_h5_file %>% stringr::str_split('/') %>% unlist()
-my_reflectance_id <- tools::file_path_sans_ext(my_flightline_id) # DEPENDS ON FOLDER WHERE H5 FILE IS
-#
-my_refl <- my_h5[[glue('{my_aop_site}/Reflectance/Reflectance_Data')]]
-wls_path <- glue('{my_aop_site}/Reflectance/Metadata/Spectral_Data/Wavelength')
-my_wls <- my_h5[[wls_path]]$read()
-scale_factor <- my_refl$attr_open('Scale_Factor')$read()
-na_value <- my_refl$attr_open('Data_Ignore_Value')$read()
-  
-# WAVELENGTHS FOR ALGORITHMS
-wl560id <- which.min(abs(my_wls-560))
-wl1640id <- which.min(abs(my_wls-1640))
-  
-map_info_path <- glue('{my_aop_site}/Reflectance/Metadata/Coordinate_System/Map_Info')
-map_info <- my_h5[[map_info_path]]$read() %>% strsplit(',') %>% unlist()
-my_dims <- my_refl$dims
-xy_resolution <- as.numeric(c(map_info[2], map_info[3]))
-xmin <- as.numeric(map_info[4])
-xmax <- xmin + my_dims[2] * xy_resolution[1]
-ymax <- as.numeric(map_info[5])
-ymin <- ymax - my_dims[3] * xy_resolution[2]
-my_extent <- terra::ext(xmin, xmax, ymin, ymax)
-
-  
-  # get the info to map!
-my_bands <- c(wl560id = wl560id,
-                wl1640id = wl1640id) # select band IDs to extract
-
-my_spectra_list <- purrr::map(my_bands,
-                                ~terra::rast(my_refl[.x, 1:my_dims[2], 1:my_dims[3]]))
-my_spectra_list <- purrr::map(my_spectra_list, ~terra::t(.))
-  
-my_rast_n <- terra::rast(my_spectra_list)
-my_rast_n[my_rast_n == -9999] <- NA
-names(my_rast_n) <- glue('b{stringr::str_pad(my_bands, 3, "left", "0")}_{round(my_wls[my_bands])}nm')
-
-terra::ext(my_rast_n) <- my_extent
-terra::crs(my_rast_n) <- my_epsg2
-  
-  
-  # MODIFIED nNDWI (green - swir)/(green + swir)
-  calc_mNDWI <- function(img, b1x, b2x){
-    b1 <- img[[b1x]]
-    b2 <- img[[b2x]]
-    mndwi <- (b1 - b2)/(b1 + b2)
-    return(mndwi)
-  }
-  b560 <- grep('wl560id', names(my_bands))
-  b1640 <- grep('wl1640id', names(my_bands))
-  my_mndwi <- calc_mNDWI(my_rast_n, b560, b1640)
-  names(my_mndwi) <- 'mNDWI'
-  
-hdf5r::h5close(my_h5)
+my_site_yr <- '2021_DEJU_4'
+my_aop_site <- 'DEJU'
+my_aop_yr <- 2021
 ```
 
+```{r}
+my_site_dir <- glue('{data_dir}/centerlines/01_mNDWI/{my_site_yr}')
+my_site_files <- fs::dir_ls(my_site_dir)
+
+```
+
+map with nhd flowlines also? 
 
 ```{r}
- ggplot() +
-    geom_stars(data = st_as_stars(my_mndwi)) +
+# my_site_file <- my_site_files[17]
+
+```
+
+```{r}
+save_watermask <- function(my_site_file){
+  my_mndwi <- readRDS(file = my_site_file) %>% terra::rast()
+  my_reflectance_id <- basename(my_site_file) %>% tools::file_path_sans_ext()
+  
+  aa <- ggplot() +
+      geom_stars(data = st_as_stars(my_mndwi)) +
+      scico::scale_fill_scico(palette = 'oleron', direction = -1) +
+      theme_void() +
+      ggtitle(glue('{my_reflectance_id}')) +
+      theme(legend.position = 'bottom')
+  
+  # threshold for water mask
+  rcl_matrix <- matrix(c(-Inf, 0, 0, 
+                           0, Inf, 1), ncol = 3, byrow = TRUE)
+  riv_mask <- terra::classify(my_mndwi, rcl = rcl_matrix, include.lowest = FALSE)
+  
+  bb <- ggplot() +
+      geom_stars(data = st_as_stars(riv_mask)) +
+      theme_void() +
+      ggtitle(glue('{my_reflectance_id}')) +
+      theme(legend.position = 'bottom')
+  
+  wm <- cowplot::plot_grid(aa, bb, nrow = 1)
+  
+  my_wm_dir <- glue('{data_dir}/centerlines/02_watermask/{my_site_yr}')
+  my_wm_filename <- glue('{my_wm_dir}/{my_reflectance_id}.png')
+  ggsave(my_wm_filename, wm)
+  message(glue('saved {my_reflectance_id} watermask'))
+}
+
+
+```
+
+```{r}
+my_site_files %>% purrr::walk(~save_watermask(.x))
+```
+
+# make QA spreadsheet
+
+```{r}
+df <- data.frame(refl_id = basename(my_site_files)) %>%
+  dplyr::mutate(site_yr_id = my_site_yr) %>%
+  dplyr::mutate(refl_id = tools::file_path_sans_ext(refl_id)) %>%
+  dplyr::mutate(river_check = NA) %>%
+  dplyr::select(site_yr_id, refl_id, river_check)
+
+df %>% readr::write_excel_csv(file = glue('~/Box/data/watermask-check/{my_site_yr}-rivercheck.csv'), na = "")
+```
+
+# after checking water masks
+
+```{r}
+check_df <- fs::dir_ls('~/Box/data/watermask-check/done', glob = glue('*{my_site_yr}*')) %>%
+  readr::read_csv() %>%
+  dplyr::filter(river_check)
+my_river_fileids <- check_df$refl_id
+```
+
+```{r}
+# my_site_dir <- glue('{data_dir}/centerlines/01_mNDWI/{my_site_yr}')
+# my_site_files <- fs::dir_ls(my_site_dir)
+idz <- my_river_fileids %>% purrr::map_int(~grep(pattern = .x, x = my_site_files))
+river_site_files <- my_site_files[idz]
+```
+
+```{r}
+rlist <- river_site_files[1:21] %>%
+  purrr::map(~readRDS(.x)) %>%
+  purrr::map(~terra::rast(.x))
+rsrc <- terra::src(rlist)
+m <- terra::mosaic(rsrc)
+wrap(m) %>% saveRDS('blan-mosaic.rds')
+plot(m)
+
+mm <- ggplot() +
+    geom_stars(data = st_as_stars(m)) +
     scico::scale_fill_scico(palette = 'oleron', direction = -1) +
     theme_void() +
-   theme(legend.position = 'bottom')
+    theme(legend.position = 'bottom')
+ggsave(filename = 'blan2021-mosaic.png', mm)
+ggsave(filename = 'blan2021-mosaic.pdf', mm, width = 20, height = 30)
 ```
 
-## edge stuff
+```{r}
+river_site_file <- river_site_files[1]
+my_mndwi <- m
+```
 
 ```{r}
-# threshold for water mask
-rcl_matrix <- matrix(c(-Inf, 0, 0, 
-                         0, Inf, 1), ncol = 3, byrow = TRUE)
-riv_mask <- my_mndwi
-riv_mask1 <- terra::classify(riv_mask, rcl = rcl_matrix, include.lowest = FALSE)
-
-# max filter for noise/tree canopies - widens the stream a bit
-riv_mask2 = focal(riv_mask1, 
+  my_mndwi <- readRDS(file = river_site_file) %>% terra::rast()
+  my_reflectance_id <- basename(river_site_file) %>% tools::file_path_sans_ext()
+  
+  # threshold for water mask
+  rcl_matrix <- matrix(c(-Inf, 0, 0, 
+                           0, Inf, 1), ncol = 3, byrow = TRUE)
+  riv_mask <- terra::classify(my_mndwi, rcl = rcl_matrix, include.lowest = FALSE)
+  # max filter for noise/tree canopies - widens the stream a bit
+  riv_mask1 = focal(riv_mask, 
                    w = matrix(1, nrow = 3, ncol = 3), 
                    fun = max)
-ggplot() +
+
+  riv_polygon <- riv_mask1 %>% terra::as.polygons()
+  riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(mNDWI == 1)
+
+  ggplot() +
     geom_stars(data = st_as_stars(riv_mask1)) +
-    theme_void() +
-   theme(legend.position = 'bottom')
-
-
-any_water_check <- max(terra::minmax(riv_mask)) > 0 # check if there is any water in image!
-
-# IF SO, proceed... 
-
-# then raster to polygon
-riv_polygon <- riv_mask2 %>% terra::as.polygons()
-riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(mNDWI == 1)
-
-ggplot() +
-    geom_stars(data = st_as_stars(riv_mask2)) +
     geom_sf(data = riv_polygon_sf, fill = NA, col = 'yellow') +
     theme_void() +
    theme(legend.position = 'bottom')
  
+  # SMOOTH with ksmooth 20
+  riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
 
-# SMOOTH with ksmooth 20
-riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
+  # mask raster with smoothed river
 
-# mask raster with smoothed river
+  ggplot() +
+    geom_stars(data = st_as_stars(riv_mask1)) +
+    geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
+    theme_void() +
+   theme(legend.position = 'bottom')
 
-ggplot() +
+  # make actual NAs as 0 before doing inverse!
+  riv_mask1[is.na(riv_mask1)] <- 0
+  
+  riv_smooth_sv <- as(riv_smooth, "SpatVector")
+  riv_mask2 <- terra::mask(riv_mask1, mask = riv_smooth_sv, inverse = TRUE, touches = TRUE)
+
+  ggplot() +
     geom_stars(data = st_as_stars(riv_mask2)) +
     geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
     theme_void() +
-   theme(legend.position = 'bottom')
-
-riv_smooth_sv <- as(riv_smooth, "SpatVector")
-riv_mask3 <- terra::mask(riv_mask2, mask = riv_smooth_sv, inverse = TRUE, touches = TRUE)
-
-ggplot() +
-    geom_stars(data = st_as_stars(riv_mask3)) +
-    geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
-    theme_void() +
-   theme(legend.position = 'bottom')
+    theme(legend.position = 'bottom')
 
 ```
 
@@ -172,14 +197,16 @@ leaflet() %>%
 ```
 
 ```{r}
-# reclassify for whitebox
-rcl_matrix <- matrix(c(-Inf, 1, 1, 
+my_reflectance_id <- 'blan_mosaic'
+  # reclassify for whitebox
+  rcl_matrix <- matrix(c(-Inf, 1, 1, 
                          NA, NA, 0), ncol = 3, byrow = TRUE)
-riv_mask_wb <- terra::classify(riv_mask3, rcl = rcl_matrix, include.lowest = FALSE)
-plot(riv_mask_wb)
-wb_filename1 <- glue('{my_reflectance_id}-rivmask_wb.tif')
-wb_filename2 <- glue('{my_reflectance_id}-wb_dists.tif')
-riv_mask_wb %>% writeRaster(wb_filename1)
+  riv_mask_wb <- terra::classify(riv_mask2, rcl = rcl_matrix, include.lowest = FALSE)
+  plot(riv_mask_wb)
+  wb_filename1 <- glue('{my_reflectance_id}-rivmask_wb.tif')
+  riv_mask_wb %>% writeRaster(wb_filename1)
+
+    wb_filename2 <- glue('{my_reflectance_id}-wb_dists.tif')
 
 wbt_euclidean_distance(
   input = wb_filename1,
@@ -194,7 +221,8 @@ plot(riv_dist)
 ggplot() +
     geom_stars(data = st_as_stars(riv_dist)) +
     geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
-    theme_void()
+    theme_void() +
+    theme(legend.position = 'bottom')
 
 # edge detection with sobel
 
@@ -246,7 +274,7 @@ riv_sobel_mask01 <- terra::classify(riv_sobel_mask, rcl = rcl_matrix_pts, includ
 
 # will be barely visible
 ggplot() +
-    geom_stars(data = st_as_stars(riv_sobel_mask01)) +
+  geom_stars(data = st_as_stars(riv_sobel_mask01)) +
   theme_void() 
 
 # convert to points
@@ -260,6 +288,7 @@ plot(riv_cent_sf)
 
 ```{r}
 my_reflectance_id
+my_aop_yr <- 2021
 ```
 
 
