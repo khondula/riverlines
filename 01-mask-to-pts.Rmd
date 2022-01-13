@@ -111,6 +111,7 @@ check_df <- fs::dir_ls('~/Box/data/watermask-check/done', glob = glue('*{my_site
   readr::read_csv() %>%
   dplyr::filter(river_check)
 my_river_fileids <- check_df$refl_id
+check_df %>% readr::write_csv(glue('{data_dir}/riverline-checks/my_site_yr.csv'))
 ```
 
 ```{r}
