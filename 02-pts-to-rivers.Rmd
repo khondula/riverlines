@@ -35,13 +35,14 @@ library(whitebox)
 * for each segment, create shortest path line between points
 
 ```{r}
-begin_id = 803
-end_id = 370
+riv_cent_sf <- st_read('pts/BLAN_2021/blan_mosaic-riverline_01-pts.shp')
+begin_id = 967
+end_id = 10585
 pt1a <- riv_cent_sf %>% dplyr::filter(pt_id == begin_id)
 pt1b <- riv_cent_sf %>% dplyr::filter(pt_id == end_id)
 
 pts_sf <- riv_cent_sf %>% dplyr::filter(pt_id %in% c(begin_id, end_id))
-pts_dir <-glue('pts/{my_aop_site}_{my_aop_yr}')
+pts_dir <- glue('pts/{my_aop_site}_{my_aop_yr}')
 fs::dir_create(pts_dir)
 line_filename <- glue('{pts_dir}/{my_reflectance_id}-riverline_01-pts.shp')
 pts_sf %>% 
@@ -71,9 +72,11 @@ ggplot() +
 
 
 # least cost path from points - For each line segment
+# plot(riv_sobel_mask20)
+riv_sobel_mask20_patches <- terra::patches(riv_sobel_mask20)
 
 riv_sobel_mask20r <- raster(riv_sobel_mask20)
-tr <- gdistance::transition(riv_sobel_mask20r, function(x) 1/mean(x), directions = 4)
+tr <- gdistance::transition(riv_sobel_mask20r, function(x) 1/mean(x), directions = 8)
 
 my_spath <- gdistance::shortestPath(tr, origin = st_coordinates(pt1a), goal = st_coordinates(pt1b))
 my_spath_sp <- gdistance::shortestPath(tr, origin = st_coordinates(pt1a), goal = st_coordinates(pt1b), output = 'SpatialLines')
@@ -81,7 +84,7 @@ line_sf <- my_spath_sp %>% st_as_sf() %>% dplyr::mutate(aop_site = my_aop_site, 
 
 lines_dir <-glue('lines/{my_aop_site}_{my_aop_yr}')
 fs::dir_create(lines_dir)
-line_filename <- glue('{lines_dir}/{my_reflectance_id}-riverline_01.shp')
+line_filename <- glue('{lines_dir}/{my_reflectance_id}-riverline_01b.shp')
 line_sf %>% st_write(line_filename, append = FALSE)
 
 plot(my_spath_sp)
@@ -148,9 +151,9 @@ cc <- ggplot() +
    theme(legend.position = 'bottom') +
    ggtitle('')
 
-cowplot::plot_grid(bb, cc, aa, nrow = 1)
+cp <- cowplot::plot_grid(bb, cc, aa, nrow = 1)
 
-ggsave(glue('figs/{my_reflectance_id}-{my_aop_yr}-centerline.png'), width = 12)
+ggsave(glue('figs/{my_reflectance_id}-{my_aop_yr}-centerline1.png'), aa, width = 12)
 ```
 
 ```{r}
