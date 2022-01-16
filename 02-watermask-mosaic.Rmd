@@ -24,7 +24,7 @@ library(ggplot2)
 library(smoothr)
 # library(gdistance)
 # library(leaflet)
-# library(whitebox)
+library(whitebox)
 
 ```
 
@@ -40,17 +40,9 @@ fs::dir_ls(glue('{data_dir}/centerlines/02_watermask')) %>% basename()
 ```
 
 ```{r}
-checked_site_yr <- '2019_TOOL_3'
-check_df <- readr::read_csv(glue('{checked_site_yr}-rivercheck-notes.csv')) %>% dplyr::filter(river_check)
-# check_df <- fs::dir_ls('~/Box/data/watermask-check/done', glob = glue('*{my_site_yr}*')) %>%
-#   readr::read_csv() %>%
-#   dplyr::filter(river_check)
-my_river_fileids <- check_df$refl_id
-check_df %>% readr::write_csv(glue('{data_dir}/riverline-checks/{checked_site_yr}.csv'))
-```
-
-```{r}
-check_df <- readr::read_csv(glue('{data_dir}/riverline-checks/{checked_site_yr}.csv'))
+checked_site_yr <- '2021_BLAN_4'
+rivercheck_dir <- glue('{data_dir}/centerlines/riverchecks')
+check_df <- readr::read_csv(glue('{rivercheck_dir}/{checked_site_yr}-rivercheck-notes.csv')) %>% dplyr::filter(river_check)
 my_river_fileids <- check_df$refl_id
 my_site_dir <- glue('{data_dir}/centerlines/01_mNDWI/{checked_site_yr}')
 my_site_files <- fs::dir_ls(my_site_dir)
@@ -58,74 +50,195 @@ idz <- my_river_fileids %>% purrr::map_int(~grep(pattern = .x, x = my_site_files
 river_site_files <- my_site_files[idz]
 ```
 
-```{r}
-rlist <- river_site_files %>%
-  purrr::map(~readRDS(.x)) %>%
-  purrr::map(~terra::rast(.x))
-rsrc <- terra::src(rlist)
-m <- terra::mosaic(rsrc)
-wrap(m) %>% saveRDS(glue('{data_dir}/centerlines/00_mosaic-data/{checked_site_yr}-mosaic.rds'))
-# plot(m)
-
-mm <- ggplot() +
-    geom_stars(data = st_as_stars(m)) +
-    scico::scale_fill_scico(palette = 'oleron', direction = -1) +
-    theme_void() +
-    theme(legend.position = 'bottom')
-# ggsave(filename = glue('{data_dir}/centerlines/00_mosaic-data/{my_site_yr}-mosaic.png'), mm)
-ggsave(filename = glue('{data_dir}/centerlines/00_mosaic-data/{checked_site_yr}-mosaic.pdf'), mm, width = 8, height = 10)
-```
+classify 
 
 ```{r}
 river_site_file <- river_site_files[1]
-my_mndwi <- m
-```
 
-```{r}
-  my_mndwi <- readRDS(file = river_site_file) %>% terra::rast()
+save_watermask01 <- function(river_site_file){
+  mndwi_rast <- river_site_file %>% readRDS() %>% terra::rast()
   my_reflectance_id <- basename(river_site_file) %>% tools::file_path_sans_ext()
-  
+
   # threshold for water mask
   rcl_matrix <- matrix(c(-Inf, 0, 0, 
                            0, Inf, 1), ncol = 3, byrow = TRUE)
-  riv_mask <- terra::classify(my_mndwi, rcl = rcl_matrix, include.lowest = FALSE)
-  # max filter for noise/tree canopies - widens the stream a bit
-  riv_mask1 = focal(riv_mask, 
+    riv_mask <- terra::classify(mndwi_rast, rcl = rcl_matrix, include.lowest = FALSE)
+
+    # max filter for noise/tree canopies - widens the stream a bit
+    riv_mask1 = terra::focal(riv_mask, 
                    w = matrix(1, nrow = 3, ncol = 3), 
+                   expand = TRUE,
                    fun = max)
 
-  riv_polygon <- riv_mask1 %>% terra::as.polygons()
-  riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(mNDWI == 1)
+  # c(riv_mask, riv_mask1) %>% plot()
 
-  ggplot() +
-    geom_stars(data = st_as_stars(riv_mask1)) +
-    geom_sf(data = riv_polygon_sf, fill = NA, col = 'yellow') +
+    mask_dir <- glue('{data_dir}/centerlines/03_watermask-data/{basename(my_site_dir)}')
+    fs::dir_create(mask_dir)
+    my_w <- riv_mask1 %>% terra::wrap()
+    my_filename <- glue('{mask_dir}/{my_reflectance_id}.tif')
+    terra::writeRaster(x = riv_mask1, filename = my_filename, overwrite = TRUE)
+    saveRDS(my_w, file = glue('{mask_dir}/{my_reflectance_id}.rds'))
+    message(glue('saved {my_reflectance_id} watermask'))  
+}
+
+
+```
+
+
+```{r}
+river_site_files %>% purrr::walk(~save_watermask01(.x))
+```
+
+## moasic
+
+```{r}
+
+mask_dir <- glue('{data_dir}/centerlines/03_watermask-data/{basename(my_site_dir)}')
+# mask_files <- fs::dir_ls(mask_dir, glob = glue('*.rds'))
+mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif'))
+
+rlist <- mask_files %>%
+  # purrr::map(~readRDS(.x)) %>%
+  purrr::map(~terra::rast(.x)) %>%
+  purrr::map(~terra::trim(.x))
+rsrc <- terra::src(rlist)
+m <- terra::mosaic(rsrc)
+wrap(m) %>% saveRDS(glue('{data_dir}/centerlines/04_watermask-mosaic/{checked_site_yr}-mosaic.rds'))
+```
+
+```{r}
+mm <- ggplot() +
+    geom_stars(data = st_as_stars(m)) +
+    # scico::scale_fill_scico(palette = 'oleron', direction = -1) +
     theme_void() +
-   theme(legend.position = 'bottom')
- 
-  # SMOOTH with ksmooth 20
-  riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
+    theme(legend.position = 'bottom') +
+  ggtitle(glue('{checked_site_yr} mNDWI > 0 w max filter'))
+ggsave(filename = glue('{data_dir}/centerlines/04_watermask-mosaic/{checked_site_yr}-mosaic.pdf'), mm, width = 8, height = 10)
+```
 
-  # mask raster with smoothed river
+# polygons
 
-  ggplot() +
-    geom_stars(data = st_as_stars(riv_mask1)) +
-    geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
-    theme_void() +
-   theme(legend.position = 'bottom')
+```{r}
+riv_polygon <- m %>% terra::as.polygons()
+riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(mNDWI == 1)
+# SMOOTH with ksmooth 20
+riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
 
-  # make actual NAs as 0 before doing inverse!
-  riv_mask1[is.na(riv_mask1)] <- 0
-  
-  riv_smooth_sv <- as(riv_smooth, "SpatVector")
-  riv_mask2 <- terra::mask(riv_mask1, mask = riv_smooth_sv, inverse = TRUE, touches = TRUE)
+ggplot() +
+  geom_sf(data = riv_smooth)
 
-  ggplot() +
-    geom_stars(data = st_as_stars(riv_mask2)) +
-    geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
-    theme_void() +
-    theme(legend.position = 'bottom')
+polygons_dir <-glue('polygons/{my_aop_site}_{my_aop_yr}')
+fs::dir_create(polygons_dir)
+polygon_filename <- glue('{polygons_dir}/{my_reflectance_id}-riversmooth.shp')
+riv_smooth %>% 
+  dplyr::mutate(aop_site = my_aop_site, aop_yr = my_aop_yr, refl_id = my_reflectance_id) %>% 
+  st_write(polygon_filename, append = FALSE)
+```
 
+```{r}
+# mask with smooth
+# make actual NAs as 0 before doing inverse!
+# m[is.na(m)] <- 0
+plot(m)  
+
+riv_smooth_sv <- as(riv_smooth, "SpatVector")
+riv_mask2 <- terra::mask(m, mask = riv_smooth_sv, inverse = TRUE, touches = TRUE, updatevalue = 1)
+plot(riv_mask2)
+
+rcl_matrix <- matrix(c(0, 1, 
+                         1, 0), ncol = 2, byrow = TRUE)
+# rcl_matrix <- matrix(c(-Inf, 1, 1, 
+#                          NA, NA, 0), ncol = 3, byrow = TRUE)
+riv_mask_wb <- terra::classify(riv_mask2, rcl = rcl_matrix)
+
+plot(riv_mask_wb)
+
+
+# wb_dir <- glue('{data_dir}/centerlines/06_rivmask_4wb/{basename(my_site_dir)}')
+# fs::dir_create(wb_dir)
+
+wb_dir <- glue('06_rivmask_4wb/{basename(my_site_dir)}')
+fs::dir_create(wb_dir)
+
+wb_filename1 <- glue('{wb_dir}/rivmask_wb.tif')
+riv_mask_wb %>% terra::writeRaster(wb_filename1, overwrite = TRUE)
+
+
+```
+
+
+```{r}
+# wb_dir2 <- glue('{data_dir}/centerlines/07_wb-dist/{basename(my_site_dir)}')
+# fs::dir_create(wb_dir2)
+wb_dir2 <- glue('07_wb-dist/{basename(my_site_dir)}')
+fs::dir_create(wb_dir2)
+wb_filename2 <- glue('{wb_dir2}/wb_dists.tif')
+
+wbt_euclidean_distance(
+  input = wb_filename1,
+  output = wb_filename2,
+  compress_rasters = TRUE,
+  verbose_mode = TRUE)
+
+riv_dist <- terra::rast(wb_filename2)
+plot(riv_dist)
+
+# mm2 <- ggplot() +
+#     geom_stars(data = st_as_stars(riv_mask2)) +
+#     # scico::scale_fill_scico(palette = 'oleron', direction = -1) +
+#     theme_void() +
+#     theme(legend.position = 'bottom') +
+#   ggtitle(glue('{checked_site_yr} mNDWI > 0 w max filter'))
+# ggsave(filename = glue('{data_dir}/centerlines/{checked_site_yr}-mosaic.png'), mm2)
+```
+
+
+```{r}
+# mosaic_file <- glue('{data_dir}/centerlines/00_mosaic-data/{checked_site_yr}-mosaic.rds')
+# my_mndwi <- readRDS(file = mosaic_file) %>% terra::rast()
+# # my_reflectance_id <- basename(river_site_file) %>% tools::file_path_sans_ext()
+#   
+#   # threshold for water mask
+#   rcl_matrix <- matrix(c(-Inf, 0, 0, 
+#                            0, Inf, 1), ncol = 3, byrow = TRUE)
+#   riv_mask <- terra::classify(my_mndwi, rcl = rcl_matrix, include.lowest = FALSE)
+#   # max filter for noise/tree canopies - widens the stream a bit
+#   riv_mask1 = focal(riv_mask, 
+#                    w = matrix(1, nrow = 3, ncol = 3), 
+#                    fun = max)
+# 
+#   riv_polygon <- riv_mask1 %>% terra::as.polygons()
+#   riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(mNDWI == 1)
+# 
+#   ggplot() +
+#     geom_stars(data = st_as_stars(riv_mask1)) +
+#     geom_sf(data = riv_polygon_sf, fill = NA, col = 'yellow') +
+#     theme_void() +
+#    theme(legend.position = 'bottom')
+#  
+#   # SMOOTH with ksmooth 20
+#   riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
+# 
+#   # mask raster with smoothed river
+# 
+#   ggplot() +
+#     geom_stars(data = st_as_stars(riv_mask1)) +
+#     geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
+#     theme_void() +
+#    theme(legend.position = 'bottom')
+# 
+#   # make actual NAs as 0 before doing inverse!
+#   riv_mask1[is.na(riv_mask1)] <- 0
+#   
+#   riv_smooth_sv <- as(riv_smooth, "SpatVector")
+#   riv_mask2 <- terra::mask(riv_mask1, mask = riv_smooth_sv, inverse = TRUE, touches = TRUE)
+# 
+#   ggplot() +
+#     geom_stars(data = st_as_stars(riv_mask2)) +
+#     geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
+#     theme_void() +
+#     theme(legend.position = 'bottom')
+# 
 ```
 
 ```{r}
@@ -134,33 +247,15 @@ leaflet() %>%
   addPolygons(data = st_transform(riv_smooth, 4326))
 ```
 
-```{r}
-my_reflectance_id <- 'blan_mosaic'
-  # reclassify for whitebox
-  rcl_matrix <- matrix(c(-Inf, 1, 1, 
-                         NA, NA, 0), ncol = 3, byrow = TRUE)
-  riv_mask_wb <- terra::classify(riv_mask2, rcl = rcl_matrix, include.lowest = FALSE)
-  plot(riv_mask_wb)
-  wb_filename1 <- glue('{my_reflectance_id}-rivmask_wb.tif')
-  riv_mask_wb %>% writeRaster(wb_filename1)
 
-    wb_filename2 <- glue('{my_reflectance_id}-wb_dists.tif')
-
-wbt_euclidean_distance(
-  input = wb_filename1,
-  output = wb_filename2,
-  verbose_mode = TRUE)
-riv_dist <- terra::rast(wb_filename2)
-plot(riv_dist)
-```
 
 ```{r}
 
-ggplot() +
-    geom_stars(data = st_as_stars(riv_dist)) +
-    geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
-    theme_void() +
-    theme(legend.position = 'bottom')
+# ggplot() +
+#     geom_stars(data = st_as_stars(riv_dist)) +
+#     geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
+#     theme_void() +
+#     theme(legend.position = 'bottom')
 
 # edge detection with sobel
 
@@ -178,25 +273,18 @@ riv_sobel <- sqrt(riv_dists_sobel1^2 + riv_dists_sobel2^2)
 
 ggplot() +
     geom_stars(data = st_as_stars(riv_sobel)) +
-    # geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
+    geom_sf(data = riv_smooth, fill = NA, col = NA) +
     theme_void()
 
-# remask with river
+# remask with river so areas outside are NA
 riv_sobel_mask <- terra::mask(riv_sobel, mask = riv_smooth_sv, touches = FALSE)
 
-ggplot() +
+plot(riv_sobel_mask)
+gg <- ggplot() +
     geom_stars(data = st_as_stars(riv_sobel_mask)) +
-    geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
+    # geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
   theme_void() 
-
-
-
-polygons_dir <-glue('polygons/{my_aop_site}_{my_aop_yr}')
-fs::dir_create(polygons_dir)
-polygon_filename <- glue('{polygons_dir}/{my_reflectance_id}-riversmooth.shp')
-riv_smooth %>% 
-  dplyr::mutate(aop_site = my_aop_site, aop_yr = my_aop_yr, refl_id = my_reflectance_id) %>% 
-  st_write(polygon_filename, append = FALSE)
+ggsave('test2.pdf', gg)
 ```
 
 ```{r}
@@ -210,10 +298,23 @@ rcl_matrix_pts <- matrix(c(-Inf, my_val, 1,
 
 riv_sobel_mask01 <- terra::classify(riv_sobel_mask, rcl = rcl_matrix_pts, include.lowest = FALSE)
 
+# now higher threshold for area
+my_val2 <- quantile(terra::values(riv_sobel_mask), 0.2, na.rm = TRUE)
+
+rcl_matrix_area <- matrix(c(-Inf, my_val2, 1, 
+                         my_val2, Inf, NA), ncol = 3, byrow = TRUE)
+
+riv_sobel_mask20 <- terra::classify(riv_sobel_mask, rcl = rcl_matrix_area, include.lowest = FALSE)
+
 # will be barely visible
-ggplot() +
-  geom_stars(data = st_as_stars(riv_sobel_mask01)) +
+gg2 <- ggplot() +
+  geom_stars(data = st_as_stars(riv_sobel_mask20)) +
   theme_void() 
+
+ggsave('test3.pdf', gg2)
+
+riv_sobel_mask20_patches <- terra::patches(riv_sobel_mask20)
+
 
 # convert to points
 riv_cent_sv <- terra::as.points(riv_sobel_mask01)
