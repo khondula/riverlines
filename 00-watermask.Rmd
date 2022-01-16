@@ -22,19 +22,14 @@ library(stringr)
 library(stars)
 library(scico)
 library(ggplot2)
-# library(smoothr)
-# library(gdistance)
-# library(leaflet)
-# library(whitebox)
-
 ```
 
 # Set up
 
 ```{r}
 my_aop_yr <- '2021'
-my_aop_site <- 'BLAN'
-my_domain <- 'D02'
+my_aop_site <- 'CLBJ'
+my_domain <- 'D11'
 ```
 
 get all L3 files for site
@@ -48,7 +43,7 @@ my_site_files <- glue('{my_site_dir}/L3/Spectrometer/Reflectance') %>%
 
 
 ```{r}
-my_h5_file <- my_site_files[1]
+# my_h5_file <- my_site_files[1]
 ```
 
 # For each file
@@ -125,7 +120,7 @@ check_waterindex <- function(my_h5_file){
     # terra::writeRaster(x = my_mndwi, filename = my_filename)
     saveRDS(my_w, file = glue('{mndwi_dir}/{my_reflectance_id}.rds'))
   }
-  message(glue('{any_water_check}'))
+  message(glue('{any_water_check} water in {my_reflectance_id}'))
   return(any_water_check)
 }
 
@@ -137,196 +132,7 @@ check_waterindex <- function(my_h5_file){
 waterfiles_idx <- my_site_files %>% purrr::walk(~check_waterindex(.x))
 ```
 
-
 ```{r}
- ggplot() +
-    geom_stars(data = st_as_stars(my_mndwi)) +
-    scico::scale_fill_scico(palette = 'oleron', direction = -1) +
-    theme_void() +
-   theme(legend.position = 'bottom')
-```
-
-## edge stuff
-
-```{r}
-# threshold for water mask
-rcl_matrix <- matrix(c(-Inf, 0, 0, 
-                         0, Inf, 1), ncol = 3, byrow = TRUE)
-riv_mask <- my_mndwi
-riv_mask1 <- terra::classify(riv_mask, rcl = rcl_matrix, include.lowest = FALSE)
-
-# max filter for noise/tree canopies - widens the stream a bit
-riv_mask2 = focal(riv_mask1, 
-                   w = matrix(1, nrow = 3, ncol = 3), 
-                   fun = max)
-ggplot() +
-    geom_stars(data = st_as_stars(riv_mask1)) +
-    theme_void() +
-   theme(legend.position = 'bottom')
-
-# then raster to polygon
-riv_polygon <- riv_mask2 %>% terra::as.polygons()
-riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(mNDWI == 1)
-
-ggplot() +
-    geom_stars(data = st_as_stars(riv_mask2)) +
-    geom_sf(data = riv_polygon_sf, fill = NA, col = 'yellow') +
-    theme_void() +
-   theme(legend.position = 'bottom')
- 
-
-# SMOOTH with ksmooth 20
-riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
-
-# mask raster with smoothed river
-
-ggplot() +
-    geom_stars(data = st_as_stars(riv_mask2)) +
-    geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
-    theme_void() +
-   theme(legend.position = 'bottom')
-
-riv_smooth_sv <- as(riv_smooth, "SpatVector")
-riv_mask3 <- terra::mask(riv_mask2, mask = riv_smooth_sv, inverse = TRUE, touches = TRUE)
-
-ggplot() +
-    geom_stars(data = st_as_stars(riv_mask3)) +
-    geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
-    theme_void() +
-   theme(legend.position = 'bottom')
-
-```
-
-```{r}
-leaflet() %>%
-  addProviderTiles(providers$Esri.WorldImagery) %>%
-  addPolygons(data = st_transform(riv_smooth, 4326))
-```
-
-```{r}
-# reclassify for whitebox
-rcl_matrix <- matrix(c(-Inf, 1, 1, 
-                         NA, NA, 0), ncol = 3, byrow = TRUE)
-riv_mask_wb <- terra::classify(riv_mask3, rcl = rcl_matrix, include.lowest = FALSE)
-plot(riv_mask_wb)
-wb_filename1 <- glue('{my_reflectance_id}-rivmask_wb.tif')
-wb_filename2 <- glue('{my_reflectance_id}-wb_dists.tif')
-riv_mask_wb %>% writeRaster(wb_filename1)
-
-###
-wbt_euclidean_distance(
-  input = wb_filename1,
-  output = wb_filename2,
-  verbose_mode = TRUE)
-riv_dist <- terra::rast(wb_filename2)
-plot(riv_dist)
-```
-
-```{r}
-
-ggplot() +
-    geom_stars(data = st_as_stars(riv_dist)) +
-    geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
-    theme_void()
-
-# edge detection with sobel
-
-w_sobel1 <- matrix(c(-1, -2, -1, 0, 0, 0, 1, 2, 1), nrow = 3)
-w_sobel2 <- matrix(c(1, 2, 1, 0, 0, 0, -1, -2, -1), byrow = TRUE, nrow = 3)
-
-riv_dists_sobel1 = terra::focal(riv_dist, 
-                   w = w_sobel1, 
-                   expand = TRUE)
-riv_dists_sobel2 = terra::focal(riv_dist, 
-                   w = w_sobel2, 
-                   expand = TRUE)
-
-riv_sobel <- sqrt(riv_dists_sobel1^2 + riv_dists_sobel2^2)
-
-ggplot() +
-    geom_stars(data = st_as_stars(riv_sobel)) +
-    # geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
-    theme_void()
-
-# remask with river
-riv_sobel_mask <- terra::mask(riv_sobel, mask = riv_smooth_sv, touches = FALSE)
-
-ggplot() +
-    geom_stars(data = st_as_stars(riv_sobel_mask)) +
-    geom_sf(data = riv_smooth, fill = NA, col = 'yellow') +
-  theme_void() 
-
-
-
-polygons_dir <-glue('polygons/{my_aop_site}_{my_aop_yr}')
-fs::dir_create(polygons_dir)
-polygon_filename <- glue('{polygons_dir}/{my_reflectance_id}-riversmooth.shp')
-riv_smooth %>% 
-  dplyr::mutate(aop_site = my_aop_site, aop_yr = my_aop_yr, refl_id = my_reflectance_id) %>% 
-  st_write(polygon_filename, append = FALSE)
-```
-
-```{r}
-# create points to manually identify river segments
-
-# low threshold for zero crossings
-my_val <- quantile(terra::values(riv_sobel_mask), 0.01, na.rm = TRUE) # 0.2 for area, 0.01 for points? 
-
-rcl_matrix_pts <- matrix(c(-Inf, my_val, 1, 
-                         my_val, Inf, NA), ncol = 3, byrow = TRUE)
-
-riv_sobel_mask01 <- terra::classify(riv_sobel_mask, rcl = rcl_matrix_pts, include.lowest = FALSE)
-
-# will be barely visible
-ggplot() +
-    geom_stars(data = st_as_stars(riv_sobel_mask01)) +
-  theme_void() 
-
-# convert to points
-riv_cent_sv <- terra::as.points(riv_sobel_mask01)
-riv_cent_sf <- riv_cent_sv %>% st_as_sf() %>% tibble::rowid_to_column('pt_id')
-plot(riv_cent_sf)
-
-```
- 
-# helper map for point ID
-
-```{r}
-my_reflectance_id
-```
-
-
-```{r}
-leaflet() %>%
-  addTiles(group = 'bg') %>%
-  addProviderTiles(providers$Esri.WorldImagery, group = 'esri') %>%
-  addPolygons(data = st_transform(riv_smooth, 4326), color = 'cyan', fillOpacity = 0.1) %>%
-  addMarkers(data = st_transform(riv_cent_sf, 4326),   
-             clusterOptions = markerClusterOptions(),
-             group = 'pts', popup = ~glue('point {pt_id}')) %>%
-  addLayersControl(overlayGroups = c('bg','pts', 'esri'))
-```
-
-```{r}
-bb <- ggplot() +
-    geom_stars(data = st_as_stars(my_mndwi)) +
-       colorspace::scale_fill_continuous_diverging(palette = 'Cork', mid = 0, rev = TRUE) +
-     geom_sf(data = riv_smooth, fill = NA, col = NA) +
-    theme_void() +
-   theme(legend.position = 'bottom') +
-  ggtitle(glue('{my_reflectance_id} {my_aop_yr}'))
-
-cc <- ggplot() +
-    geom_stars(data = st_as_stars(my_mndwi)) +
-       colorspace::scale_fill_continuous_diverging(palette = 'Cork', mid = 0, rev = TRUE) +
-     geom_sf(data = riv_smooth, fill = NA, col = 'black') +
-    theme_void() +
-   theme(legend.position = 'bottom') +
-   ggtitle('')
-
-cowplot::plot_grid(bb, cc, nrow = 1)
-
-ggsave(glue('figs/{my_reflectance_id}-{my_aop_yr}.png'), width = 12)
-
+my_site_files %>% purrr::walk(~fs::file_delete(.x))
 ```
 
