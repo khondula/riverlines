@@ -1,0 +1,95 @@
+---
+title: "centerlines"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Find river centerline from a surface reflectance file
+
+```{r}
+library(terra)
+library(hdf5r)
+library(dplyr)
+library(sf)
+library(glue)
+library(stringr)
+library(stars)
+library(scico)
+library(ggplot2)
+library(smoothr)
+# library(gdistance)
+# library(leaflet)
+library(whitebox)
+
+```
+
+
+# after checking water masks
+
+* make sure connected to scratch
+
+```{r}
+data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
+# data_dir <- 'S:/users/khondula/DATA'
+fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-data')) %>% basename()
+fs::dir_ls(glue('{data_dir}/centerlines/02_watermask-imgs')) %>% basename()
+```
+
+```{r}
+# checked_site_yr <- '2021_BLAN_4'
+# checked_site_yr <- '2021_NOGP_5'
+checked_site_yr <- '2021_ORNL_5'
+rivercheck_dir <- glue('{data_dir}/centerlines/riverchecks')
+check_df <- readr::read_csv(glue('{rivercheck_dir}/{checked_site_yr}-rivercheck-notes.csv')) %>% dplyr::filter(river_check)
+my_river_fileids <- check_df$refl_id
+my_site_dir <- glue('{data_dir}/centerlines/01_mNDWI/{checked_site_yr}')
+my_site_files <- fs::dir_ls(my_site_dir)
+idz <- my_river_fileids %>% purrr::map_int(~grep(pattern = .x, x = my_site_files))
+river_site_files <- my_site_files[idz]
+```
+
+classify 
+
+```{r}
+# river_site_file <- river_site_files[1]
+
+save_watermask01 <- function(river_site_file){
+  mndwi_rast <- river_site_file %>% readRDS() %>% terra::rast()
+  my_reflectance_id <- basename(river_site_file) %>% tools::file_path_sans_ext()
+
+  # threshold for water mask
+  rcl_matrix <- matrix(c(-Inf, 0, 0, 
+                           0, Inf, 1), ncol = 3, byrow = TRUE)
+    riv_mask <- terra::classify(mndwi_rast, rcl = rcl_matrix, include.lowest = FALSE)
+
+    # max filter for noise/tree canopies - widens the stream a bit
+    riv_mask1 = terra::focal(riv_mask, 
+                   w = matrix(1, nrow = 3, ncol = 3), 
+                   expand = TRUE,
+                   fun = max)
+
+  # c(riv_mask, riv_mask1) %>% plot()
+
+    mask_dir <- glue('{data_dir}/centerlines/03_watermask-data/{basename(my_site_dir)}')
+    fs::dir_create(mask_dir)
+    my_w <- riv_mask1 %>% terra::wrap()
+    my_filename <- glue('{mask_dir}/{my_reflectance_id}.tif')
+    terra::writeRaster(x = riv_mask1, filename = my_filename, overwrite = TRUE)
+    saveRDS(my_w, file = glue('{mask_dir}/{my_reflectance_id}.rds'))
+    message(glue('saved {my_reflectance_id} watermask'))  
+}
+
+
+```
+
+
+```{r}
+river_site_files %>% purrr::walk(~save_watermask01(.x))
+```
+
+
