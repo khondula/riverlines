@@ -97,8 +97,16 @@ river_site_files %>% purrr::walk(~save_watermask01(.x))
 ```{r}
 
 mask_dir <- glue('{data_dir}/centerlines/03_watermask-data/{basename(my_site_dir)}')
+# mask_dir <- glue('03_watermask-data/{basename(my_site_dir)}')
 # mask_files <- fs::dir_ls(mask_dir, glob = glue('*.rds'))
-mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif'))
+mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif')) %>% as.character()
+
+mosaic_outname <- glue('mosaic-{basename(my_site_dir)}.tif') %>% as.character()
+
+wbt_mosaic(output = mosaic_outname,
+           inputs = mask_files[1:2],
+           verbose_mode = TRUE,
+           compress_rasters = TRUE)
 
 rlist <- mask_files %>%
   # purrr::map(~readRDS(.x)) %>%
@@ -107,28 +115,32 @@ rlist <- mask_files %>%
 rsrc <- terra::src(rlist)
 m <- terra::mosaic(rsrc)
 wrap(m) %>% saveRDS(glue('{data_dir}/centerlines/04_watermask-mosaic/{checked_site_yr}-mosaic.rds'))
+
+m <- terra::rast('03_watermask-data/2021_ORNL_5/mosaic.tif')
+plot(mm)
+m <- mm
 ```
 
 ```{r}
-mm <- ggplot() +
-    geom_stars(data = st_as_stars(m)) +
-    # scico::scale_fill_scico(palette = 'oleron', direction = -1) +
-    theme_void() +
-    theme(legend.position = 'bottom') +
-  ggtitle(glue('{checked_site_yr} mNDWI > 0 w max filter'))
-ggsave(filename = glue('{data_dir}/centerlines/04_watermask-mosaic/{checked_site_yr}-mosaic.pdf'), mm, width = 12, height = 8)
+# mm <- ggplot() +
+#     geom_stars(data = st_as_stars(m)) +
+#     # scico::scale_fill_scico(palette = 'oleron', direction = -1) +
+#     theme_void() +
+#     theme(legend.position = 'bottom') +
+#   ggtitle(glue('{checked_site_yr} mNDWI > 0 w max filter'))
+# ggsave(filename = glue('{data_dir}/centerlines/04_watermask-mosaic/{checked_site_yr}-mosaic.pdf'), mm, width = 12, height = 8)
 ```
 
 # polygons
 
 ```{r}
 riv_polygon <- m %>% terra::as.polygons()
-riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(mNDWI == 1)
+riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(mosaic == 1)
 # SMOOTH with ksmooth 20
 riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
 
-ggplot() +
-  geom_sf(data = riv_smooth)
+# ggplot() +
+#   geom_sf(data = riv_smooth)
 # 
 # polygons_dir <-glue('polygons/{my_aop_site}_{my_aop_yr}')
 # fs::dir_create(polygons_dir)
@@ -142,7 +154,7 @@ ggplot() +
 # mask with smooth
 # make actual NAs as 0 before doing inverse!
 # m[is.na(m)] <- 0
-plot(m)  
+# plot(m)  
 
 riv_smooth_sv <- as(riv_smooth, "SpatVector")
 riv_mask2 <- terra::mask(m, mask = riv_smooth_sv, inverse = TRUE, touches = TRUE, updatevalue = 1)
@@ -154,7 +166,7 @@ rcl_matrix <- matrix(c(0, 1,
 #                          NA, NA, 0), ncol = 3, byrow = TRUE)
 riv_mask_wb <- terra::classify(riv_mask2, rcl = rcl_matrix)
 
-plot(riv_mask_wb)
+# plot(riv_mask_wb)
 
 
 # wb_dir <- glue('{data_dir}/centerlines/06_rivmask_4wb/{basename(my_site_dir)}')
@@ -172,6 +184,10 @@ riv_mask_wb %>% terra::writeRaster(wb_filename1, overwrite = TRUE)
 # whitebox part
 
 ```{r}
+wb_dir <- glue('06_rivmask_4wb/{basename(my_site_dir)}')
+fs::dir_create(wb_dir)
+
+wb_filename1 <- glue('{wb_dir}/rivmask_wb.tif')
 # wb_dir2 <- glue('{data_dir}/centerlines/07_wb-dist/{basename(my_site_dir)}')
 # fs::dir_create(wb_dir2)
 wb_dir2 <- glue('07_wb-dist/{basename(my_site_dir)}')
@@ -185,6 +201,11 @@ wbt_euclidean_distance(
   verbose_mode = TRUE)
 
 riv_dist <- terra::rast(wb_filename2)
+wb_dir2c <- glue('{data_dir}/centerlines/07_wb-dist/{basename(my_site_dir)}')
+fs::dir_create(wb_dir2c)
+riv_dist %>% terra::wrap() %>% saveRDS(glue('{wb_dir2c}/wb_dists.rds'))
+riv_dist %>% terra::writeRaster(glue('{wb_dir2c}/wb_dists.tif'))
+
 plot(riv_dist)
 
 # mm2 <- ggplot() +
@@ -262,14 +283,53 @@ riv_sobel_mask20 <- terra::classify(riv_sobel_mask, rcl = rcl_matrix_area, inclu
 # 
 # ggsave('test3.pdf', gg2)
 
-riv_sobel_mask20_patches <- terra::patches(riv_sobel_mask20, directions = 8)
+# wbt_clump(
+#   input,
+#   output,
+#   diag = TRUE,
+#   zero_back = FALSE,
+#   wd = NULL,
+#   verbose_mode = FALSE,
+#   compress_rasters = FALSE
+# )
+```
 
-gg3 <- ggplot() +
-  geom_stars(data = st_as_stars(riv_sobel_mask20_patches)) +
-  scale_fill_viridis_c() +
-  theme_void()
-# 
-ggsave(glue('test4-{basename(my_site_dir)}.pdf'), gg3)
+```{r}
+my_dir8 <- glue('08_sobelmask20/{basename(my_site_dir)}')
+fs::dir_create(my_dir8)
+
+wb_filename1 <- glue('{my_dir8}/sobelmask20.tif')
+riv_sobel_mask20 %>% terra::writeRaster(wb_filename1, overwrite = TRUE)
+
+my_dir9 <- glue('09_wb_patches/{basename(my_site_dir)}')
+fs::dir_create(my_dir9)
+
+wb_filename2 <- glue('{my_dir9}/patches.tif')
+
+wbt_clump(
+  input = wb_filename1,
+  output = wb_filename2,
+  diag = TRUE,
+  verbose_mode = TRUE,
+  compress_rasters = TRUE
+)
+```
+
+```{r}
+# riv_sobel_mask20_patches <- terra::patches(riv_sobel_mask20, directions = 8)
+riv_sobel_mask20_patches <- terra::rast(wb_filename2)
+
+
+wb_dir9c <- glue('{data_dir}/centerlines/09_patches/{basename(my_site_dir)}')
+fs::dir_create(wb_dir9c)
+riv_sobel_mask20_patches %>% terra::writeRaster(glue('{wb_dir9c}/patches.tif'))
+
+# gg3 <- ggplot() +
+#   geom_stars(data = st_as_stars(riv_sobel_mask20_patches)) +
+#   scale_fill_viridis_c() +
+#   theme_void()
+# # 
+# ggsave(glue('{my_dir9}/{basename(my_site_dir)}-patches.pdf'), gg3)
 
 ```
 
