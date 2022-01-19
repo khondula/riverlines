@@ -56,7 +56,7 @@ if(is.null(unique(check_df$notes))){check_df$notes <- 'group1'}
 ```
 
 ```{r}
-my_group <- 'group1'
+my_group <- 'group3'
 my_group_id <- my_group[1]
 
 ```
@@ -82,6 +82,14 @@ my_bbox <- st_bbox(m) %>% st_as_sfc() %>% st_as_sf()
 ```
 
 ```{r}
+riv_polygon <- m %>% terra::as.polygons()
+riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(.[[1]] == 1)
+# SMOOTH with ksmooth 20
+riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
+riv_smooth_nocrumbs <- riv_smooth %>% smoothr::drop_crumbs(threshold = 10)
+```
+
+```{r}
 library(leaflet)
 library(htmltools)
 
@@ -104,6 +112,9 @@ ll <- leaflet() %>%
   addProviderTiles(providers$Esri.WorldImagery, group = 'esri') %>%
   addPolygons(data = my_boxes, color = 'red', opacity = 1, weight = 2, fillOpacity = 0, label = ~glue('{id}')) %>%
   addPolygons(data = riv4326, color = 'cyan', opacity = 1, fillOpacity = 0.1, group = 'riv', weight = 1) %>%
+      # addWMSTiles(wbd, layers = list("1"), 
+      #         options = WMSTileOptions(format = "image/png", transparent = TRUE),
+      #           group = 'watersheds12') %>%
     addWMSTiles(wbd, layers = list("2"), 
               options = WMSTileOptions(format = "image/png", transparent = TRUE),
                 group = 'watersheds10') %>%
@@ -117,12 +128,6 @@ ll
 # convert mosaic to polygons, smooth, mask
 
 ```{r}
-riv_polygon <- m %>% terra::as.polygons()
-riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(.[[1]] == 1)
-# SMOOTH with ksmooth 20
-riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
-riv_smooth_nocrumbs <- riv_smooth %>% smoothr::drop_crumbs(threshold = 10)
-
 riv_smooth_sv <- as(riv_smooth, "SpatVector")
 riv_mask2 <- terra::mask(m, mask = riv_smooth_sv, inverse = TRUE, touches = TRUE, updatevalue = 1)
 # plot(riv_mask2)
@@ -227,8 +232,8 @@ fs::dir_create(my_dir9)
 # identify patches
 
 ```{r}
-library(Polychrome)
-library(Polychrome)
+# library(Polychrome)
+# library(Polychrome)
 # kelly.colors(22) %>% scales::show_col()
 # createPalette(100,  c("#ff0000", "#00ff00", "#0000ff")) %>% scales::show_col()
 
@@ -246,7 +251,7 @@ fs::dir_create(wb_dir9c)
 riv_sobel_mask20_patches %>% terra::writeRaster(glue('{wb_dir9c}/patches-{my_group_id}.tif'))
 
 gg3 <- ggplot() +
-  geom_sf(data = riv_smooth, col = 'red', fill = NA, lwd = 0.1) +
+  geom_sf(data = riv_smooth, col = 'red', fill = NA, lwd = 0) +
   geom_stars(data = st_as_stars(riv_sobel_mask20_patches)) +
   scale_fill_viridis_c() +
   theme_void() +
@@ -258,17 +263,42 @@ ggsave(glue('{wb_dir9c}/{basename(my_site_dir)}-patches-{my_group_id}.pdf'), gg3
 
 # save leaflet
 
+maybe try splitting odd and even patches into separate layers? 
+
+```{r}
+is.even <- function(x) x %% 2 == 0
+max_val <- minmax(riv_sobel_mask20_patches)[2]
+evens_rast <- terra::app(riv_sobel_mask20_patches, is.even)
+rcl_matrix <- matrix(c(0, max_val), ncol = 2, byrow = TRUE)
+max_rast <- terra::classify(evens_rast, rcl_matrix)
+patches2 <- riv_sobel_mask20_patches + max_rast
+```
+
+```{r}
+gg3 <- ggplot() +
+  geom_sf(data = riv_smooth, col = 'red', fill = NA, lwd = 0) +
+  geom_stars(data = st_as_stars(patches2)) +
+  scale_fill_viridis_c() +
+  theme_void() +
+  theme(legend.position = 'none')
+#
+# ggsave(glue('{wb_dir9c}/{basename(my_site_dir)}-patches-{my_group_id}b.jpeg'), gg3)
+ggsave(glue('{wb_dir9c}/{basename(my_site_dir)}-patches-{my_group_id}b.pdf'), gg3)
+patches2 %>% writeRaster(glue('{wb_dir9c}/{basename(my_site_dir)}-patches-{my_group_id}b.tif'))
+```
+
  
 ```{r}
 library(leaflet)
 library(htmltools)
 
-patches4326 <- terra::project(riv_sobel_mask20_patches, 'EPSG:4326')
+patches4326 <- terra::project(patches2, 'EPSG:4326')
+# patches4326 <- terra::project(riv_sobel_mask20_patches, 'EPSG:4326')
 # minmax(patches4326)
 patches_r <- raster::raster(patches4326)
 
 my_pal <- colorNumeric('viridis', na.color = "#00000000", domain = 1:minmax(patches4326)[2])
-my_pal <- createPalette(minmax(patches4326)[2],  c("#ff0000", "#00ff00", "#0000ff"))
+# my_pal <- createPalette(minmax(patches4326)[2],  c("#ff0000", "#00ff00", "#0000ff"))
 
 
 ll <- leaflet(height = 1000) %>%
@@ -279,8 +309,8 @@ ll <- leaflet(height = 1000) %>%
              clusterOptions = markerClusterOptions(),
              group = 'pts', popup = ~glue('point {pt_id}')) %>%
   addLayersControl(overlayGroups = c('bg','pts', 'esri', 'patches'))
-ll
-ll %>% htmltools::save_html(file = glue('10_leaflets/leaflet-{basename(my_site_dir)}-{my_group_id}.html'))
+# ll
+ll %>% htmltools::save_html(file = glue('10_leaflets/leaflet-{basename(my_site_dir)}-{my_group_id}b.html'))
 ```
 
 
