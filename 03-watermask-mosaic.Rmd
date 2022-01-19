@@ -37,21 +37,26 @@ library(whitebox)
 data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
 # data_dir <- 'S:/users/khondula/DATA'
 # fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-data')) %>% basename()
-# fs::dir_ls(glue('{data_dir}/centerlines/02_watermask-imgs')) %>% basename()
+fs::dir_ls(glue('{data_dir}/centerlines/02_watermask-imgs')) %>% basename() %>%
+  grep('YELL', x = ., value = TRUE)
 ```
 
 ```{r}
 # checked_site_yr <- '2021_BLAN_4'
 # checked_site_yr <- '2021_NOGP_5'
-checked_site_yr <- '2021_ORNL_5'
+# checked_site_yr <- '2021_ORNL_5'
+checked_site_yr <- '2020_YELL_3'
 rivercheck_dir <- glue('{data_dir}/centerlines/riverchecks')
 check_df <- readr::read_csv(glue('{rivercheck_dir}/{checked_site_yr}-rivercheck-notes.csv')) %>% dplyr::filter(river_check)
 my_site_dir <- glue('{data_dir}/centerlines/01_mNDWI/{checked_site_yr}')
+unique(check_df$notes)
+# my_group <- c('group4', 'group5')
+if(is.null(unique(check_df$notes))){check_df$notes <- 'group1'}
+
 ```
 
 ```{r}
-unique(check_df$notes)
-my_group <- c('group4', 'group5')
+my_group <- 'group1'
 my_group_id <- my_group[1]
 
 ```
@@ -66,19 +71,48 @@ mask_dir <- glue('{data_dir}/centerlines/03_watermask-data/{basename(my_site_dir
 mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif')) %>% as.character()
 idz <- my_group_files %>% purrr::map_int(~grep(pattern = .x, x = mask_files))
 group_mask_files <- mask_files[idz]
-```
-
 # mosaic with gdal
-
-```{r}
 gdalcommand <- glue::glue('gdalbuildvrt mosaic-{my_group_id}.vrt {glue_collapse(group_mask_files, sep = " ")}')
 system(gdalcommand)
 gdalcommand2 <- glue('gdal_translate -of GTiff mosaic-{my_group_id}.vrt mosaic-{my_group_id}.tif')
 system(gdalcommand2)
 m <- terra::rast(glue('mosaic-{my_group_id}.tif'))
 plot(m)
+my_bbox <- st_bbox(m) %>% st_as_sfc() %>% st_as_sf()
 ```
 
+```{r}
+library(leaflet)
+library(htmltools)
+
+riv4326 <- st_transform(riv_smooth_nocrumbs, 'EPSG:4326')
+# minmax(patches4326)
+# moasic_r <- raster::raster(mosaic4326)
+# plot(moasic_r)
+my_boxes <- group_mask_files %>% 
+  purrr::map(~terra::rast(.x)) %>% 
+  purrr::map(~st_bbox(.x)) %>%
+  purrr::map(~st_as_sfc(.x)) %>%
+  purrr::map(~st_as_sf(.x)) %>% 
+  bind_rows() %>% st_transform(4326) %>%
+  dplyr::mutate(id = basename(group_mask_files))
+
+wbd <- "https://hydro.nationalmap.gov/arcgis/services/wbd/MapServer/WMSServer"
+wbd <- 'https://hydro.nationalmap.gov:443/arcgis/services/wbd/MapServer/WmsServer'
+ll <- leaflet() %>%
+  addTiles(group = 'bg') %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = 'esri') %>%
+  addPolygons(data = my_boxes, color = 'red', opacity = 1, weight = 2, fillOpacity = 0, label = ~glue('{id}')) %>%
+  addPolygons(data = riv4326, color = 'cyan', opacity = 1, fillOpacity = 0.1, group = 'riv', weight = 1) %>%
+    addWMSTiles(wbd, layers = list("2"), 
+              options = WMSTileOptions(format = "image/png", transparent = TRUE),
+                group = 'watersheds10') %>%
+  addWMSTiles(wbd, layers = list("3"), 
+              options = WMSTileOptions(format = "image/png", transparent = TRUE),
+                group = 'watersheds08') %>%
+  addLayersControl(overlayGroups = c('bg', 'esri', 'riv', 'watersheds08', 'watersheds10'))
+ll
+```
 
 # convert mosaic to polygons, smooth, mask
 
@@ -87,6 +121,7 @@ riv_polygon <- m %>% terra::as.polygons()
 riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(.[[1]] == 1)
 # SMOOTH with ksmooth 20
 riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
+riv_smooth_nocrumbs <- riv_smooth %>% smoothr::drop_crumbs(threshold = 10)
 
 riv_smooth_sv <- as(riv_smooth, "SpatVector")
 riv_mask2 <- terra::mask(m, mask = riv_smooth_sv, inverse = TRUE, touches = TRUE, updatevalue = 1)
@@ -192,12 +227,17 @@ fs::dir_create(my_dir9)
 # identify patches
 
 ```{r}
-terraOptions()
-terra::mem_info(riv_sobel_mask20)
+library(Polychrome)
+library(Polychrome)
+# kelly.colors(22) %>% scales::show_col()
+# createPalette(100,  c("#ff0000", "#00ff00", "#0000ff")) %>% scales::show_col()
+
+# terraOptions()
+# terra::mem_info(riv_sobel_mask20)
 # plot(riv_sobel_mask20)
-?patches
+# ?patches
 patches_filesname <- glue('{my_dir9}/patches-{my_group_id}.tif')
-riv_sobel_mask20_patches <- terra::patches(riv_sobel_mask20, directions = 8, filename = patches_filesname)
+riv_sobel_mask20_patches <- terra::patches(riv_sobel_mask20, directions = 8)
 
 plot(riv_sobel_mask20_patches)
 
@@ -226,7 +266,10 @@ library(htmltools)
 patches4326 <- terra::project(riv_sobel_mask20_patches, 'EPSG:4326')
 # minmax(patches4326)
 patches_r <- raster::raster(patches4326)
+
 my_pal <- colorNumeric('viridis', na.color = "#00000000", domain = 1:minmax(patches4326)[2])
+my_pal <- createPalette(minmax(patches4326)[2],  c("#ff0000", "#00ff00", "#0000ff"))
+
 
 ll <- leaflet(height = 1000) %>%
   addTiles(group = 'bg') %>%
@@ -238,18 +281,6 @@ ll <- leaflet(height = 1000) %>%
   addLayersControl(overlayGroups = c('bg','pts', 'esri', 'patches'))
 ll
 ll %>% htmltools::save_html(file = glue('10_leaflets/leaflet-{basename(my_site_dir)}-{my_group_id}.html'))
-```
-
-# after points identified
-
-```{r}
-seg_df <- readxl::read_excel(glue('11_segments/segments-{basename(my_site_dir)}.xlsx'))
-padn <- nchar(nrow(riv_cent_sf))
-seg_pts <- riv_cent_sf %>% dplyr::filter(pt_id %in% c(seg_df$pt_start, seg_df$pt_end)) %>%
-  dplyr::mutate(seg_pt_id = glue('{basename(my_site_dir)}-pt_{stringr::str_pad(pt_id, width = padn, side = "left", pad = "0")}'))
-
-pts_dir <- glue('{data_dir}/centerlines/09_centerpts/{basename(my_site_dir)}')
-seg_pts %>% st_write(glue('{pts_dir}/{basename(my_site_dir)}_seg-pts.shp'))
 ```
 
 
