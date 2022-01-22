@@ -28,70 +28,54 @@ library(whitebox)
 ```{r}
 data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
 checked_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/03_rivmosaic-imgs')) %>% 
-  basename() %>% grep('BLAN', x = ., value = TRUE)
+  basename() %>% grep('DELA', x = ., value = TRUE)
 checked_site_yr
-my_group_id <- 'shen'
+
+basename(fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-rivgroups'), glob = glue('*{checked_site_yr}*MNDWI_01.tif')))
+```
+
+```{r}
+my_group_id <- 'dela'
 ```
 
 # select river segment polygons
 
-```{r}
-riv_smooth <- st_read(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}.shp'))
-```
-
-```{r}
-library(leaflet)
-
-riv4326 <- st_transform(riv_smooth, 'EPSG:4326')
-
-my_pal <- colorNumeric('viridis', na.color = "#00000000", domain = 1:nrow(riv4326))
-
-leaflet() %>%
-  addTiles(group = 'bg') %>%
-  addProviderTiles(providers$Esri.WorldImagery, group = 'esri') %>%
-  addPolygons(data = riv4326, color = ~my_pal(rand_id), group = 'riv',
-              fillOpacity = 1, opacity = 1, label = ~glue('{rand_id}')) %>%
-  addLayersControl(overlayGroups = c('bg','riv', 'esri'))
-```
-
-```{r}
-my_riv_ids <- c(77, 45)
-
-my_riv_sf <- riv_smooth %>% dplyr::filter(rand_id %in% my_riv_ids)
-my_riv_fill10 <- my_riv_sf %>% smoothr::fill_holes(threshold = 10)
-my_riv_fill10 %>% 
-  st_write(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}-riverfill10.shp'))
-my_riv_sf %>% 
-  st_write(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}-river.shp'))
-
-```
-
 # mask mndwi with smoothed river
 
 ```{r}
-my_riv_fill10 <- st_read(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}-riverfill10.shp'))
+my_riv_fill10 <- st_read(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}1-riverfill10.shp'))
 ```
 
 ```{r}
 # rm(my_awei)
 # rm(my_awei_max)
-my_mndwi_path <- glue('{data_dir}/centerlines/03_watermask-rivgroups/{checked_site_yr}-MNDWI.tif')
+my_mndwi_path <- glue('{data_dir}/centerlines/03_watermask-rivgroups/{checked_site_yr}-{my_group_id}-MNDWI_01.tif')
 my_mndwi <- terra::rast(my_mndwi_path)
-# threshold for water mask
-rcl_matrix <- matrix(c(-Inf, 0, 0, 
-                        0, Inf, 1), ncol = 3, byrow = TRUE)
-riv_mask <- terra::classify(my_mndwi, rcl = rcl_matrix, include.lowest = FALSE)
-# plot(riv_mask)
+plot(my_mndwi)
 ```
 
 ```{r}
 riv_sv <- as(my_riv_fill10, "SpatVector")
-riv_mask2 <- terra::mask(riv_mask, mask = riv_sv, inverse = FALSE, touches = FALSE, updatevalue = 0) # make ALL areas outside mask 0
-riv_mask3 <- terra::mask(riv_mask2, mask = riv_sv, inverse = TRUE, touches = FALSE, updatevalue = 1) # make ALL areas inside mask 1
-# riv_mask2 <- terra::mask(riv_mask, mask = riv_sv, inverse = TRUE, touches = TRUE, updatevalue = 1)
-plot(riv_mask2)
+# my_mndwi_corp <- terra::crop(my_mndwi, riv_sv)
+# ggplot() +
+#   geom_stars(data = st_as_stars(my_mndwi_corp)) +
+#   geom_sf(data = my_riv_fill10[1,], fill = NA, col = 'red')
+# 
+# rm3 <- terra::mask(my_mndwi_corp, mask = riv_sv, updatevalue = 0) # make ALL areas inside mask 1
+# rm4 <- terra::mask(rm3, mask = riv_sv, updatevalue = 1, inverse = TRUE) # make ALL areas inside mask 1
+# plot(rm4)
+# gg1 <- ggplot() + geom_sf(data = my_riv_fill10)
+# ggsave('testriv.pdf', gg1)
+# riv_mask2 <- terra::mask(my_mndwi, mask = riv_sv, inverse = TRUE, updatevalue = 0) # make ALL areas outside mask 0
+# plot(riv_mask2)
+# riv_mask3 <- terra::mask(my_mndwi, mask = riv_sv, inverse = FALSE, updatevalue = 1) # make ALL areas inside mask 1
+riv_mask3 <- terra::mask(my_mndwi, mask = riv_sv, updatevalue = 0) # make ALL areas inside mask 1
+riv_mask4 <- terra::mask(riv_mask3, mask = riv_sv, updatevalue = 1, inverse = TRUE) # make ALL areas inside mask 1
+?mask
+
+plot(my_mndwi)
 plot(riv_mask3)
-zoom(riv_mask3)
+# zoom(riv_mask3)
 ```
 
 Distance calculation with whitebox
