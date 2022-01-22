@@ -24,7 +24,7 @@ library(ggplot2)
 library(smoothr)
 # library(gdistance)
 # library(leaflet)
-library(whitebox)
+# library(whitebox)
 
 ```
 
@@ -34,23 +34,25 @@ library(whitebox)
 * make sure connected to scratch
 
 ```{r}
-data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
-# data_dir <- 'S:/users/khondula/DATA'
+# data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
+data_dir <- 'S:/users/khondula/DATA'
 fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-data')) %>% basename()
-fs::dir_ls(glue('{data_dir}/centerlines/02_watermask-imgs')) %>% basename()
+checked_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/02_watermask-imgs')) %>% 
+  basename() %>% grep('DELA', x = ., value = TRUE)
+checked_site_yr
 ```
 
 ```{r}
-# checked_site_yr <- '2021_BLAN_4'
-# checked_site_yr <- '2021_NOGP_5'
-checked_site_yr <- '2021_ORNL_5'
-rivercheck_dir <- glue('{data_dir}/centerlines/riverchecks')
-check_df <- readr::read_csv(glue('{rivercheck_dir}/{checked_site_yr}-rivercheck-notes.csv')) %>% dplyr::filter(river_check)
-my_river_fileids <- check_df$refl_id
+
+# rivercheck_dir <- glue('{data_dir}/centerlines/riverchecks')
+# check_df <- readr::read_csv(glue('{rivercheck_dir}/{checked_site_yr}-rivercheck-notes.csv')) %>% dplyr::filter(river_check)
+# my_river_fileids <- check_df$refl_id
 my_site_dir <- glue('{data_dir}/centerlines/01_mNDWI/{checked_site_yr}')
 my_site_files <- fs::dir_ls(my_site_dir)
-idz <- my_river_fileids %>% purrr::map_int(~grep(pattern = .x, x = my_site_files))
-river_site_files <- my_site_files[idz]
+# idz <- my_river_fileids %>% purrr::map_int(~grep(pattern = .x, x = my_site_files))
+# river_site_files <- my_site_files[idz]
+river_site_files <- my_site_files
+
 ```
 
 classify 
@@ -92,4 +94,44 @@ save_watermask01 <- function(river_site_file){
 river_site_files %>% purrr::walk(~save_watermask01(.x))
 ```
 
+```{r}
+my_group_id <- 'test-dela'
+mask_dir <- glue('{data_dir}/centerlines/03_watermask-data/{basename(my_site_dir)}')
+mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif')) %>% as.character()
+group_mask_files <- mask_files
+# mosaic with gdal
+gdalcommand <- glue::glue('gdalbuildvrt mosaic-{my_group_id}.vrt {glue_collapse(group_mask_files, sep = " ")}')
+system(gdalcommand)
+gdalcommand2 <- glue('gdal_translate -of GTiff mosaic-{my_group_id}.vrt mosaic-{my_group_id}.tif')
+system(gdalcommand2)
+m <- terra::rast(glue('mosaic-{my_group_id}.tif'))
+plot(m)
+```
+
+```{r}
+
+my_boxes <- group_mask_files %>%
+  purrr::map(~terra::rast(.x)) %>%
+  purrr::map(~st_bbox(.x)) %>%
+  purrr::map(~st_as_sfc(.x)) %>%
+  purrr::map(~st_as_sf(.x)) %>%
+  dplyr::bind_rows() %>%
+  dplyr::mutate(id = basename(group_mask_files)) %>%
+  dplyr::mutate(labx = stringr::str_sub(id, 19, 24),
+                laby = stringr::str_sub(id, 26, 32))
+```
+
+```{r}
+library(ggplot2)
+
+m5 <- terra::aggregate(m, fact = 5, na.rm = TRUE)
+gg1 <- ggplot() +
+  geom_stars(data = st_as_stars(m5)) +
+  geom_sf(data = my_boxes, col = 'black', lwd = 0.1, fill = NA) +
+  scale_fill_viridis_c() +
+  theme_void() +
+  ggtitle(glue('{checked_site_yr} mNDWI'))
+
+ggsave('test1.pdf', gg1)
+```
 

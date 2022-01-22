@@ -39,8 +39,8 @@ fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename()
 ```
 
 ```{r}
-my_site_yr <- '2021_SERC_5'
-my_aop_site <- 'SERC'
+my_site_yr <- '2021_ABBY_4'
+my_aop_site <- 'ABBY'
 my_aop_yr <- 2021
 ```
 
@@ -108,7 +108,6 @@ df %>% readr::write_excel_csv(file = glue('{my_site_yr}-rivercheck.csv'), na = "
 my_site_files %>% purrr::walk(~save_watermask(.x))
 ```
 
-# done
 
 # after checking water masks
 
