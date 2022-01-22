@@ -34,29 +34,29 @@ library(whitebox)
 * make sure connected to scratch
 
 ```{r}
-data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
-# data_dir <- 'S:/users/khondula/DATA'
+# data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
+data_dir <- 'S:/users/khondula/DATA'
 # fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-data')) %>% basename()
-fs::dir_ls(glue('{data_dir}/centerlines/02_watermask-imgs')) %>% basename() %>%
-  grep('YELL', x = ., value = TRUE)
+checked_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/01_watermask-imgs')) %>% basename() %>%
+  grep('DELA', x = ., value = TRUE)
 ```
 
 ```{r}
 # checked_site_yr <- '2021_BLAN_4'
 # checked_site_yr <- '2021_NOGP_5'
 # checked_site_yr <- '2021_ORNL_5'
-checked_site_yr <- '2020_YELL_3'
-rivercheck_dir <- glue('{data_dir}/centerlines/riverchecks')
-check_df <- readr::read_csv(glue('{rivercheck_dir}/{checked_site_yr}-rivercheck-notes.csv')) %>% dplyr::filter(river_check)
-my_site_dir <- glue('{data_dir}/centerlines/01_mNDWI/{checked_site_yr}')
-unique(check_df$notes)
+# checked_site_yr <- '2020_YELL_3'
+# rivercheck_dir <- glue('{data_dir}/centerlines/riverchecks')
+# check_df <- readr::read_csv(glue('{rivercheck_dir}/{checked_site_yr}-rivercheck-notes.csv')) %>% dplyr::filter(river_check)
+# my_site_dir <- glue('{data_dir}/centerlines/01_mNDWI/{checked_site_yr}')
+# unique(check_df$notes)
 # my_group <- c('group4', 'group5')
-if(is.null(unique(check_df$notes))){check_df$notes <- 'group1'}
+# if(is.null(unique(check_df$notes))){check_df$notes <- 'group1'}
 
 ```
 
 ```{r}
-my_group <- 'group3'
+my_group <- 'dela'
 my_group_id <- my_group[1]
 
 ```
@@ -65,21 +65,37 @@ my_group_id <- my_group[1]
 
 ```{r}
 # get file names to mosaic
-group_df <- dplyr::filter(check_df, notes %in% my_group)
-my_group_files <- group_df$refl_id
-mask_dir <- glue('{data_dir}/centerlines/03_watermask-data/{basename(my_site_dir)}')
+# group_df <- dplyr::filter(check_df, notes %in% my_group)
+# my_group_files <- group_df$refl_id
+mask_dir <- glue('{data_dir}/centerlines/01_AWEI/{basename(my_site_dir)}')
 mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif')) %>% as.character()
-idz <- my_group_files %>% purrr::map_int(~grep(pattern = .x, x = mask_files))
-group_mask_files <- mask_files[idz]
+# idz <- my_group_files %>% purrr::map_int(~grep(pattern = .x, x = mask_files))
+# group_mask_files <- mask_files[idz]
+group_mask_files <- mask_files
 # mosaic with gdal
 gdalcommand <- glue::glue('gdalbuildvrt mosaic-{my_group_id}.vrt {glue_collapse(group_mask_files, sep = " ")}')
 system(gdalcommand)
 gdalcommand2 <- glue('gdal_translate -of GTiff mosaic-{my_group_id}.vrt mosaic-{my_group_id}.tif')
 system(gdalcommand2)
 m <- terra::rast(glue('mosaic-{my_group_id}.tif'))
+m %>% writeRaster(glue('{data_dir}/centerlines/dela.tif'))
 plot(m)
 my_bbox <- st_bbox(m) %>% st_as_sfc() %>% st_as_sf()
 ```
+
+
+```{r}
+library(reticulate)
+py_install("scikit-image")
+```
+
+```{python}
+from skimage.morphology import skeletonize
+from skimage import data
+import matplotlib.pyplot as plt
+from skimage.util import invert
+```
+
 
 ```{r}
 riv_polygon <- m %>% terra::as.polygons()
@@ -275,12 +291,14 @@ patches2 <- riv_sobel_mask20_patches + max_rast
 ```
 
 ```{r}
+patches2 <- terra::rast('S:/users/khondula/DATA/centerlines/09_patches/2020_YELL_3/2020_YELL_3-patches-group3b.tif')
 gg3 <- ggplot() +
-  geom_sf(data = riv_smooth, col = 'red', fill = NA, lwd = 0) +
+  # geom_sf(data = riv_smooth, col = 'red', fill = NA, lwd = 0) +
   geom_stars(data = st_as_stars(patches2)) +
   scale_fill_viridis_c() +
   theme_void() +
   theme(legend.position = 'none')
+ggsave('yell.pdf', width = 13, height = 9)
 #
 # ggsave(glue('{wb_dir9c}/{basename(my_site_dir)}-patches-{my_group_id}b.jpeg'), gg3)
 ggsave(glue('{wb_dir9c}/{basename(my_site_dir)}-patches-{my_group_id}b.pdf'), gg3)

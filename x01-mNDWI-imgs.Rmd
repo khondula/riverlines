@@ -1,0 +1,175 @@
+---
+title: "centerlines"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Find river centerline from a surface reflectance file
+
+```{r}
+library(terra)
+library(hdf5r)
+library(dplyr)
+library(sf)
+library(glue)
+library(stringr)
+library(stars)
+library(scico)
+library(ggplot2)
+library(smoothr)
+# library(gdistance)
+# library(leaflet)
+# library(whitebox)
+
+```
+
+# whitebox part
+
+* make sure connected to scratch
+
+```{r}
+# data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
+data_dir <- 'S:/users/khondula/DATA'
+fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename()
+```
+
+```{r}
+my_site_yr <- '2021_DELA_6'
+my_aop_site <- 'DELA'
+my_aop_yr <- 2021
+```
+
+```{r}
+my_site_dir <- glue('{data_dir}/centerlines/01_mNDWI/{my_site_yr}')
+my_site_files <- fs::dir_ls(my_site_dir)
+
+```
+
+map with nhd flowlines also? 
+
+```{r}
+# my_site_file <- my_site_files[17]
+
+save_watermask <- function(my_site_file){
+  my_mndwi <- readRDS(file = my_site_file) %>% terra::rast()
+  my_reflectance_id <- basename(my_site_file) %>% tools::file_path_sans_ext()
+  
+  aa <- ggplot() +
+      geom_stars(data = st_as_stars(my_mndwi)) +
+      scico::scale_fill_scico(palette = 'oleron', direction = -1) +
+      theme_void() +
+      ggtitle(glue('{my_reflectance_id}')) +
+      theme(legend.position = 'bottom')
+  
+  # threshold for water mask
+  rcl_matrix <- matrix(c(-Inf, 0, 0, 
+                           0, Inf, 1), ncol = 3, byrow = TRUE)
+  riv_mask <- terra::classify(my_mndwi, rcl = rcl_matrix, include.lowest = FALSE)
+  
+  bb <- ggplot() +
+      geom_stars(data = st_as_stars(riv_mask)) +
+      theme_void() +
+      ggtitle(glue('{my_reflectance_id}')) +
+      theme(legend.position = 'bottom')
+  
+  wm <- cowplot::plot_grid(aa, bb, nrow = 1)
+  
+  my_wm_dir <- glue('{data_dir}/centerlines/02_watermask-imgs/{my_site_yr}')
+  fs::dir_create(my_wm_dir)
+  my_wm_filename <- glue('{my_wm_dir}/{my_reflectance_id}.png')
+  ggsave(my_wm_filename, wm)
+  message(glue('saved {my_reflectance_id} watermask'))
+}
+
+
+```
+
+make QA spreadsheet - do this while it is fresh!
+
+```{r}
+df <- data.frame(refl_id = basename(my_site_files)) %>%
+  dplyr::mutate(site_yr_id = my_site_yr) %>%
+  dplyr::mutate(refl_id = tools::file_path_sans_ext(refl_id)) %>%
+  dplyr::mutate(river_check = NA) %>%
+  dplyr::select(site_yr_id, refl_id, river_check)
+
+df %>% readr::write_excel_csv(file = glue('{my_site_yr}-rivercheck.csv'), na = "")
+
+# df %>% readr::write_excel_csv(file = glue('~/Box/data/watermask-check/{my_site_yr}-rivercheck.csv'), na = "")
+```
+
+
+```{r}
+my_site_files %>% purrr::walk(~save_watermask(.x))
+```
+
+# done
+
+# after checking water masks - save mndwi mosiac?
+
+```{r}
+checked_site_yr <- '2019_TOOL_3'
+check_df <- readr::read_csv(glue('{checked_site_yr}-rivercheck-notes.csv')) %>% dplyr::filter(river_check)
+# check_df <- fs::dir_ls('~/Box/data/watermask-check/done', glob = glue('*{my_site_yr}*')) %>%
+#   readr::read_csv() %>%
+#   dplyr::filter(river_check)
+my_river_fileids <- check_df$refl_id
+check_df %>% readr::write_csv(glue('{data_dir}/riverline-checks/{checked_site_yr}.csv'))
+```
+
+```{r}
+check_df <- readr::read_csv(glue('{data_dir}/riverline-checks/{checked_site_yr}.csv'))
+my_river_fileids <- check_df$refl_id
+my_site_dir <- glue('{data_dir}/centerlines/01_mNDWI/{checked_site_yr}')
+my_site_files <- fs::dir_ls(my_site_dir)
+idz <- my_river_fileids %>% purrr::map_int(~grep(pattern = .x, x = my_site_files))
+river_site_files <- my_site_files[idz]
+```
+
+```{r}
+# rlist <- river_site_files %>%
+#   purrr::map(~readRDS(.x)) %>%
+#   purrr::map(~terra::rast(.x))
+# rsrc <- terra::src(rlist)
+# m <- terra::mosaic(rsrc)
+# wrap(m) %>% saveRDS(glue('{data_dir}/centerlines/00_mosaic-data/{checked_site_yr}-mosaic.rds'))
+# # plot(m)
+# 
+# mm <- ggplot() +
+#     geom_stars(data = st_as_stars(m)) +
+#     scico::scale_fill_scico(palette = 'oleron', direction = -1) +
+#     theme_void() +
+#     theme(legend.position = 'bottom')
+# # ggsave(filename = glue('{data_dir}/centerlines/00_mosaic-data/{my_site_yr}-mosaic.png'), mm)
+# ggsave(filename = glue('{data_dir}/centerlines/00_mosaic-data/{checked_site_yr}-mosaic.pdf'), mm, width = 8, height = 10)
+```
+
+```{r}
+# river_site_file <- river_site_files[1]
+# my_mndwi <- m
+```
+
+```{r}
+  my_mndwi <- readRDS(file = river_site_file) %>% terra::rast()
+
+```
+ 
+```{r}
+# add bbox sf to get dim?
+cc <- ggplot() +
+    geom_stars(data = st_as_stars(my_mndwi)) +
+       colorspace::scale_fill_continuous_diverging(palette = 'Cork', mid = 0, rev = TRUE) +
+    theme_void() +
+   theme(legend.position = 'bottom') +
+   ggtitle('')
+
+
+ggsave(glue('figs/{my_reflectance_id}-{my_aop_yr}.png'), cc, width = 12)
+
+```
+

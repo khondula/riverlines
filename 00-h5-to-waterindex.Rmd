@@ -27,9 +27,9 @@ library(ggplot2)
 # Set up
 
 ```{r}
-my_aop_yr <- '2021'
-my_aop_site <- 'DELA'
-my_domain <- 'D08'
+my_aop_yr <- '2019'
+my_aop_site <- 'BART'
+my_domain <- 'D01'
 ```
 
 get all L3 files for site

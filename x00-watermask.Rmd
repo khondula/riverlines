@@ -1,0 +1,138 @@
+---
+title: "centerlines"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Find river centerline from a surface reflectance file
+
+```{r}
+library(terra)
+library(hdf5r)
+library(dplyr)
+library(sf)
+library(glue)
+library(fs)
+library(stringr)
+library(stars)
+library(scico)
+library(ggplot2)
+```
+
+# Set up
+
+```{r}
+my_aop_yr <- '2020'
+my_aop_site <- 'PUUM'
+my_domain <- 'D20'
+```
+
+get all L3 files for site
+
+```{r}
+my_site_dir <- glue('D:/{my_aop_yr}/FullSite/{my_domain}') %>%
+  fs::dir_ls(glob = glue('*{my_aop_site}*'), type = 'directory')
+my_site_files <- glue('{my_site_dir}/L3/Spectrometer/Reflectance') %>%
+  fs::dir_ls(glob = '*.h5', recurse = TRUE)
+```
+
+
+```{r}
+# my_h5_file <- my_site_files[1]
+```
+
+# For each file
+
+```{r}
+
+check_waterindex <- function(my_h5_file){
+  my_h5 <- hdf5r::H5File$new(my_h5_file, mode = "r")
+  # reflectance and metadata
+  epsg_path <- glue::glue('{my_aop_site}/Reflectance/Metadata/Coordinate_System/EPSG Code')
+  my_epsg <- my_h5[[epsg_path]]$read() %>% as.integer()
+  my_epsg2 <- glue('EPSG:{my_epsg}')
+  #
+  my_flightline_id <- my_h5_file %>% stringr::str_split('/') %>% unlist()
+  my_reflectance_id <- tools::file_path_sans_ext(my_flightline_id)[9] # DEPENDS ON FOLDER WHERE H5 FILE IS
+  #
+  my_refl <- my_h5[[glue('{my_aop_site}/Reflectance/Reflectance_Data')]]
+  wls_path <- glue('{my_aop_site}/Reflectance/Metadata/Spectral_Data/Wavelength')
+  my_wls <- my_h5[[wls_path]]$read()
+  scale_factor <- my_refl$attr_open('Scale_Factor')$read()
+  na_value <- my_refl$attr_open('Data_Ignore_Value')$read()
+    
+  # WAVELENGTHS FOR ALGORITHMS
+  wl560id <- which.min(abs(my_wls-560))
+  wl1640id <- which.min(abs(my_wls-1640))
+    
+  map_info_path <- glue('{my_aop_site}/Reflectance/Metadata/Coordinate_System/Map_Info')
+  map_info <- my_h5[[map_info_path]]$read() %>% strsplit(',') %>% unlist()
+  my_dims <- my_refl$dims
+  xy_resolution <- as.numeric(c(map_info[2], map_info[3]))
+  xmin <- as.numeric(map_info[4])
+  xmax <- xmin + my_dims[2] * xy_resolution[1]
+  ymax <- as.numeric(map_info[5])
+  ymin <- ymax - my_dims[3] * xy_resolution[2]
+  my_extent <- terra::ext(xmin, xmax, ymin, ymax)
+  
+    
+  my_bands <- c(wl560id = wl560id,
+                  wl1640id = wl1640id) # select band IDs to extract
+  
+  my_spectra_list <- purrr::map(my_bands,
+                                  ~terra::rast(my_refl[.x, 1:my_dims[2], 1:my_dims[3]]))
+  my_spectra_list <- purrr::map(my_spectra_list, ~terra::t(.))
+    
+  my_rast_n <- terra::rast(my_spectra_list)
+  my_rast_n[my_rast_n == -9999] <- NA
+  names(my_rast_n) <- glue('b{stringr::str_pad(my_bands, 3, "left", "0")}_{round(my_wls[my_bands])}nm')
+  
+  terra::ext(my_rast_n) <- my_extent
+  terra::crs(my_rast_n) <- my_epsg2
+    
+    
+    # MODIFIED nNDWI (green - swir)/(green + swir)
+    calc_mNDWI <- function(img, b1x, b2x){
+      b1 <- img[[b1x]]
+      b2 <- img[[b2x]]
+      mndwi <- (b1 - b2)/(b1 + b2)
+      return(mndwi)
+    }
+    b560 <- grep('wl560id', names(my_bands))
+    b1640 <- grep('wl1640id', names(my_bands))
+    my_mndwi <- calc_mNDWI(my_rast_n, b560, b1640)
+    names(my_mndwi) <- 'mNDWI'
+    
+  hdf5r::h5close(my_h5)
+  
+  any_water_check <- max(terra::minmax(my_mndwi)) > 0 # check if there is any water in image!
+  if(any_water_check){
+    data_dir <- 'S:/users/khondula/DATA'
+    mndwi_dir <- glue('{data_dir}/centerlines/01_mNDWI/{basename(my_site_dir)}')
+    fs::dir_create(mndwi_dir)
+    my_w <- my_mndwi %>% terra::wrap()
+    my_filename <- glue('{mndwi_dir}/{my_reflectance_id}.tif')
+    # terra::writeRaster(x = my_mndwi, filename = my_filename)
+    saveRDS(my_w, file = glue('{mndwi_dir}/{my_reflectance_id}.rds'))
+  }
+  message(glue('{any_water_check} water in {my_reflectance_id}'))
+  return(any_water_check)
+}
+
+
+# my_ww <- readRDS(file = glue('{mndwi_dir}/{my_reflectance_id}.rds'))
+```
+
+```{r}
+waterfiles_idx <- my_site_files %>% purrr::walk(~check_waterindex(.x))
+```
+
+```{r}
+my_site_files %>% purrr::walk(~fs::file_delete(.x))
+```
+
