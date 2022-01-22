@@ -27,9 +27,9 @@ library(ggplot2)
 # Set up
 
 ```{r}
-my_aop_yr <- '2019'
-my_aop_site <- 'BART'
-my_domain <- 'D01'
+my_aop_yr <- '2021'
+my_aop_site <- 'ORNL'
+my_domain <- 'D07'
 ```
 
 get all L3 files for site
@@ -217,11 +217,17 @@ my_site_files %>% purrr::walk(~check_waterindex(.x))
 ```
 
 # delete files
-```{r}
-my_site_files %>% purrr::walk(~fs::file_delete(.x))
-```
 
 ```{r}
+# my_aop_yr <- '2021'
+# my_aop_site <- 'SCBI'
+# my_domain <- 'D02'
+# my_site_dir <- glue('D:/{my_aop_yr}/FullSite/{my_domain}') %>%
+#   fs::dir_ls(glob = glue('*{my_aop_site}*'), type = 'directory')
+# my_site_files <- glue('{my_site_dir}/L3/Spectrometer/Reflectance') %>%
+#   fs::dir_ls(glob = '*.h5', recurse = TRUE)
+my_site_files %>% purrr::walk(~fs::file_delete(.x))
+
 my_site_dir <- glue('D:/{my_aop_yr}/FullSite/{my_domain}') %>%
   fs::dir_ls(glob = glue('*{my_aop_site}*'), type = 'directory')
 my_site_files <- glue('{my_site_dir}/L3/Camera/Mosaic') %>%

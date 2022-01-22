@@ -16,7 +16,7 @@ fs::dir_ls(glue('{data_dir}/centerlines/01_watermask-imgs')) %>% basename()
 fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename()
 
 my_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename() %>%
-  grep('BLAN', x = ., value = TRUE)
+  grep('DELA', x = ., value = TRUE)
 ```
 
 # MNDWI
@@ -27,41 +27,57 @@ mask_dir <- glue('{data_dir}/centerlines/01_mNDWI/{my_site_yr}')
 mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif')) %>% as.character()
 ```
 
+```{r}
+rivercheck_dir <- glue('{data_dir}/centerlines/riverchecks')
+check_df <- readr::read_csv(glue('{rivercheck_dir}/{my_site_yr}-rivercheck-notes.csv')) %>% dplyr::filter(river_check)
+unique(check_df$group)
+
+```
+
+```{r}
+
+my_group <- NA
+my_group_id <- 'dela'
+```
+
+```{r}
+group_df <- check_df %>% dplyr::filter(group %in% my_group)
+my_river_fileids <- group_df$refl_id
+idz <- my_river_fileids %>% purrr::map_int(~grep(pattern = .x, x = mask_files))
+river_site_files <- mask_files[idz]
+length(river_site_files)
+```
+
 # mosaic with gdal
 
 ```{r}
-gdalcommand <- glue::glue('gdalbuildvrt tmp/mosaic.vrt {glue_collapse(mask_files, sep = " ")}')
+gdalcommand <- glue::glue('gdalbuildvrt tmp/mosaic.vrt {glue_collapse(river_site_files, sep = " ")}')
 system(gdalcommand)
 gdalcommand2 <- glue('gdal_translate -of GTiff tmp/mosaic.vrt tmp/mosaic-{my_site_yr}.tif')
 system(gdalcommand2)
 
 m <- terra::rast(glue('tmp/mosaic-{my_site_yr}.tif'))
-m %>% writeRaster(glue('{data_dir}/centerlines/02_watermask-mosaics/{my_site_yr}.tif'))
+m %>% writeRaster(glue('{data_dir}/centerlines/03_watermask-rivgroups/{my_site_yr}-{my_group_id}-MNDWI.tif'))
 plot(m)
 
-my_boxes <- mask_files %>% 
-  purrr::map(~terra::rast(.x)) %>% 
-  purrr::map(~st_bbox(.x)) %>%
-  purrr::map(~st_as_sfc(.x)) %>%
-  purrr::map(~st_as_sf(.x)) %>% 
-  bind_rows() %>% 
-  dplyr::mutate(id = basename(mask_files)) %>%
-  dplyr::mutate(labx = str_sub(id, 19, 24),
-                laby = str_sub(id, 26, 32))
-
+my_bbox <- st_bbox(m) %>% st_as_sfc() %>% st_as_sf()
 m5 <- terra::aggregate(m, fact = 5, na.rm = TRUE)
 gg1 <- ggplot() +
   geom_stars(data = st_as_stars(m5)) +
-  geom_sf(data = my_boxes, col = 'black', lwd = 0.1, fill = NA) +
   colorspace::scale_fill_continuous_sequential(palette = 'Plasma', rev = TRUE) +
-  geom_sf_text(data = my_boxes, aes(label = glue('{labx}\n{laby}')), size = 2) +
+  geom_sf(data = my_bbox, fill = NA, col = 'black') +
   theme_void() +
   ggtitle(glue('{my_site_yr} mNDWI')) +
   theme(legend.position = 'none')
   
-plot_dir <- glue('{data_dir}/centerlines/02_mosaic-imgs/{my_site_yr}')
+plot_dir <- glue('{data_dir}/centerlines/03_rivmosaic-imgs/{my_site_yr}')
 fs::dir_create(plot_dir)
-ggsave(glue('{plot_dir}/{my_site_yr}-mNDWI.pdf'), width = 12, height = 12)
+ggsave(glue('{plot_dir}/{my_site_yr}-{my_group_id}-mNDWI.pdf'), gg1, height = 12, width = 8)
+
+rcl_matrix <- matrix(c(-Inf, 0, 0, 0, Inf, 1), ncol = 3, byrow = TRUE)
+m01 <- terra::classify(m, rcl_matrix, include.lowest = FALSE)
+plot(m01)
+m01 %>% writeRaster(glue('{data_dir}/centerlines/03_watermask-rivgroups/{my_site_yr}-{my_group_id}-MNDWI_01.tif'))
 ```
 
 # AWEI
@@ -71,40 +87,39 @@ mask_dir <- glue('{data_dir}/centerlines/01_AWEI/{my_site_yr}')
 mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif')) %>% as.character()
 ```
 
+
+```{r}
+group_df <- check_df %>% dplyr::filter(group %in% my_group)
+my_river_fileids <- group_df$refl_id
+idz <- my_river_fileids %>% purrr::map_int(~grep(pattern = .x, x = mask_files))
+river_site_files <- mask_files[idz]
+length(river_site_files)
+```
+
+
 # mosaic with gdal
 
 ```{r}
-gdalcommand <- glue::glue('gdalbuildvrt tmp/mosaic.vrt {glue_collapse(mask_files, sep = " ")}')
+gdalcommand <- glue::glue('gdalbuildvrt tmp/mosaic.vrt {glue_collapse(river_site_files, sep = " ")}')
 system(gdalcommand)
 gdalcommand2 <- glue('gdal_translate -of GTiff tmp/mosaic.vrt tmp/mosaic-{my_site_yr}.tif')
 system(gdalcommand2)
 
 m <- terra::rast(glue('tmp/mosaic-{my_site_yr}.tif'))
-m %>% writeRaster(glue('{data_dir}/centerlines/02_watermask-mosaics/{my_site_yr}.tif'))
+m %>% writeRaster(glue('{data_dir}/centerlines/03_watermask-rivgroups/{my_site_yr}-{my_group_id}-AWEI.tif'))
 plot(m)
 
-my_boxes <- mask_files %>% 
-  purrr::map(~terra::rast(.x)) %>% 
-  purrr::map(~st_bbox(.x)) %>%
-  purrr::map(~st_as_sfc(.x)) %>%
-  purrr::map(~st_as_sf(.x)) %>% 
-  bind_rows() %>% 
-  dplyr::mutate(id = basename(mask_files)) %>%
-  dplyr::mutate(labx = str_sub(id, 19, 24),
-                laby = str_sub(id, 26, 32))
-
+my_bbox <- st_bbox(m) %>% st_as_sfc() %>% st_as_sf()
 m5 <- terra::aggregate(m, fact = 5, na.rm = TRUE)
 gg1 <- ggplot() +
   geom_stars(data = st_as_stars(m5)) +
-  geom_sf(data = my_boxes, col = 'black', lwd = 0.1, fill = NA) +
   colorspace::scale_fill_continuous_sequential(palette = 'Plasma', rev = TRUE) +
-  geom_sf_text(data = my_boxes, aes(label = glue('{labx}\n{laby}')), size = 2) +
+  geom_sf(data = my_bbox, fill = NA, col = 'black') +
   theme_void() +
   ggtitle(glue('{my_site_yr} AWEI')) +
   theme(legend.position = 'none')
   
-plot_dir <- glue('{data_dir}/centerlines/02_mosaic-imgs/{my_site_yr}')
+plot_dir <- glue('{data_dir}/centerlines/03_rivmosaic-imgs/{my_site_yr}')
 fs::dir_create(plot_dir)
-ggsave(glue('{plot_dir}/{my_site_yr}-AWEI.pdf'), width = 12, height = 12)
+ggsave(glue('{plot_dir}/{my_site_yr}-{my_group_id}-AWEI.pdf'), gg1, height = 12, width = 8)
 ```
-

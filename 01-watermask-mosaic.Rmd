@@ -9,14 +9,29 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
+```{r}
+library(terra)
+library(hdf5r)
+library(dplyr)
+library(sf)
+library(glue)
+library(fs)
+library(stringr)
+library(stars)
+library(scico)
+library(ggplot2)
+```
+
 ```{r}
 data_dir <- 'S:/users/khondula/DATA'
 
 fs::dir_ls(glue('{data_dir}/centerlines/01_watermask-imgs')) %>% basename()
-fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename()
+fs::dir_ls(glue('{data_dir}/centerlines/01_AWEI')) %>% basename()
 
 my_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename() %>%
-  grep('BLAN', x = ., value = TRUE)
+  grep('ORNL', x = ., value = TRUE)
+my_site_yr
 ```
 
 # MNDWI
@@ -25,6 +40,7 @@ my_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename()
 mask_dir <- glue('{data_dir}/centerlines/01_mNDWI/{my_site_yr}')
 # mask_dir <- glue('{data_dir}/centerlines/03_watermask-data/{my_site_yr}')
 mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif')) %>% as.character()
+if(length(mask_files)>300){message('lots of files gdal might not be happy!')}
 ```
 
 # mosaic with gdal
@@ -32,13 +48,18 @@ mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif')) %>% as.character()
 ```{r}
 gdalcommand <- glue::glue('gdalbuildvrt tmp/mosaic.vrt {glue_collapse(mask_files, sep = " ")}')
 system(gdalcommand)
+```
+
+```{r}
 gdalcommand2 <- glue('gdal_translate -of GTiff tmp/mosaic.vrt tmp/mosaic-{my_site_yr}.tif')
 system(gdalcommand2)
 
 m <- terra::rast(glue('tmp/mosaic-{my_site_yr}.tif'))
-m %>% writeRaster(glue('{data_dir}/centerlines/02_watermask-mosaics/{my_site_yr}-MNDWI.tif'))
+m %>% writeRaster(glue('{data_dir}/centerlines/02_watermask-mosaics/{my_site_yr}-MNDWI.tif'), overwrite = TRUE)
 plot(m)
+```
 
+```{r}
 my_boxes <- mask_files %>% 
   purrr::map(~terra::rast(.x)) %>% 
   purrr::map(~st_bbox(.x)) %>%
@@ -74,13 +95,13 @@ mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif')) %>% as.character()
 # mosaic with gdal
 
 ```{r}
-gdalcommand <- glue::glue('gdalbuildvrt tmp/mosaic.vrt {glue_collapse(mask_files, sep = " ")}')
+gdalcommand <- glue::glue('gdalbuildvrt mosaic2.vrt {glue_collapse(mask_files, sep = " ")}')
 system(gdalcommand)
-gdalcommand2 <- glue('gdal_translate -of GTiff tmp/mosaic.vrt tmp/mosaic-{my_site_yr}.tif')
+gdalcommand2 <- glue('gdal_translate -of GTiff mosaic2.vrt tmp/mosaic-{my_site_yr}.tif')
 system(gdalcommand2)
 
 m <- terra::rast(glue('tmp/mosaic-{my_site_yr}.tif'))
-m %>% writeRaster(glue('{data_dir}/centerlines/02_watermask-mosaics/{my_site_yr}-AWEI.tif'))
+m %>% writeRaster(glue('{data_dir}/centerlines/02_watermask-mosaics/{my_site_yr}-AWEI.tif'), overwrite = TRUE)
 plot(m)
 
 my_boxes <- mask_files %>% 
