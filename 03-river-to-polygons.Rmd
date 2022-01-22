@@ -1,0 +1,178 @@
+---
+title: "Mask to Polygons"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(terra)
+library(dplyr)
+library(sf)
+library(glue)
+library(fs)
+library(stringr)
+library(stars)
+library(scico)
+library(ggplot2)
+library(whitebox)
+```
+
+# river mosaic to smooth polygons
+
+```{r}
+data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
+checked_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/03_rivmosaic-imgs')) %>% 
+  basename() %>% grep('BLAN', x = ., value = TRUE)
+checked_site_yr
+my_group_id <- 'shen'
+```
+
+```{r}
+my_awei_path <- glue('{data_dir}/centerlines/03_watermask-rivgroups/{checked_site_yr}-AWEI.tif')
+my_awei <- terra::rast(my_awei_path)
+plot(my_awei)
+```
+
+Max filter
+
+```{r}
+    # max filter for noise/tree canopies - widens the stream a bit
+my_awei_max = terra::focal(my_awei, 
+                   w = matrix(1, nrow = 3, ncol = 3), 
+                   expand = TRUE,
+                   fun = max)
+
+plot(my_awei_max)
+
+```
+
+```{r}
+riv_polygon <- my_awei_max %>% terra::as.polygons()
+riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(.[[1]] == 1)
+# SMOOTH with ksmooth 20
+riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
+riv_smooth_nocrumbs <- riv_smooth %>% smoothr::drop_crumbs(threshold = 10)
+```
+
+```{r}
+riv_smooth2 <- riv_smooth_nocrumbs %>% st_cast(to = "POLYGON")
+riv_smooth3 <- riv_smooth2 %>% 
+  dplyr::mutate(rand_id = sample(1:nrow(riv_smooth2), nrow(riv_smooth2), replace = FALSE))
+
+riv_smooth3 %>% st_write(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}.shp'))
+```
+
+```{r}
+gg1 <- ggplot() +
+  # geom_sf(data = my_boxes, col = 'red', fill = 'red', alpha = 0.1, lwd = 0.1) +
+  # geom_sf(data = riv_smooth, col = 'blue', fill = 'dodgerblue', alpha = 0.5, lwd = 0.1) +
+  geom_sf(data = riv_smooth3, aes(fill = rand_id, col = rand_id)) +
+  scale_fill_viridis_c(direction = -1) +
+  scale_color_viridis_c(direction = -1) +
+  # scico::scale_fill_scico(palette = 'batlow') +
+  # geom_sf_text(data = my_boxes, aes(label = glue('{labx}\n{laby}')), size = 1) +
+  theme_void() +
+  ggtitle(glue('{checked_site_yr}'))
+
+ggsave('test22b.pdf', gg1)
+# ggsave(glue('map1-{checked_site_yr}-{my_group_id}_colors.pdf'), gg1)
+```
+
+
+## old 
+
+mask tiff
+
+```{r}
+riv_smooth_sv <- as(riv_smooth_nocrumbs, "SpatVector")
+riv_mask2 <- terra::mask(my_awei_max, mask = riv_smooth_sv, inverse = TRUE, touches = TRUE, updatevalue = 1)
+plot(riv_mask2)
+# rcl_matrix <- matrix(c(0, 1, 1, 0), ncol = 2, byrow = TRUE)
+# riv_mask_wb <- terra::classify(riv_mask2, rcl = rcl_matrix)
+
+# plot(riv_mask_wb)
+
+# save locally for whitebox calculation
+
+wb_dir <- glue('04_skeletons/{basename(checked_site_yr)}')
+fs::dir_create(wb_dir)
+
+wb_filename1 <- glue('{wb_dir}/rivmask_wb-{my_group_id}.tif')
+riv_mask2 %>% terra::writeRaster(wb_filename1, overwrite = TRUE)
+```
+
+
+```{r}
+wb_filename2 <- glue('{wb_dir}/thinlines-{my_group_id}.tif')
+
+wbt_line_thinning(
+  input = wb_filename1,
+  output = wb_filename2,
+  verbose_mode = TRUE)
+
+riv_skel <- terra::rast(wb_filename2)
+```
+
+```{r}
+# gdalcommand3 <- glue('gdal_polygonize.py -8)
+
+plot(riv_skel)
+zoom(riv_skel)
+riv_skelna <- terra::classify(riv_skel, matrix(c(0, NA), nrow = 1))
+plot(riv_skelna)
+my_pts <- terra::as.points(riv_skelna) %>% st_as_sf() 
+my_pts_wid <- my_pts %>% tibble::rowid_to_column('pt_id')
+```
+
+```{r}
+library(leaflet)
+library(htmltools)
+
+pts4326 <- st_transform(my_pts_wid, 'EPSG:4326')
+poly4326 <- st_transform(riv_smooth3, 'EPSG:4326')
+
+my_pal <- colorNumeric('viridis', na.color = "#00000000", domain = 1:nrow(poly4326))
+# my_pal <- createPalette(minmax(patches4326)[2],  c("#ff0000", "#00ff00", "#0000ff"))
+
+
+leaflet() %>%
+  addTiles(group = 'bg') %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = 'esri') %>%
+  addPolygons(data = poly4326, color = ~my_pal(rand_id)) %>%
+  # addRasterImage(x = patches_r, colors = my_pal, maxBytes = 4e6, group = 'patches') %>%
+  addMarkers(data = pts4326,   
+             clusterOptions = markerClusterOptions(),
+             group = 'pts', popup = ~glue('point {pt_id}')) %>%
+  addLayersControl(overlayGroups = c('bg','pts', 'esri'))
+# ll
+# ll %>% htmltools::save_html(file = glue('10_leaflets/leaflet-{basename(my_site_dir)}-{my_group_id}b.html'))
+```
+
+```{r}
+my_pt_ids <- c(20694, 100784, 101221, 105313)
+seg_pts <- my_pts_wid %>% 
+  dplyr::filter(pt_id %in% my_pt_ids) 
+```
+
+```{r}
+
+riv_skel_r <- gdistance::raster(riv_skel)
+tr <- gdistance::transition(riv_skel_r, function(x) 1/mean(x), directions = 8)
+```
+
+```{r}
+ pt1 <- seg_pts %>% dplyr::filter(pt_id == 16510)
+  pt2 <- seg_pts %>% dplyr::filter(pt_id == 17163)
+  # least cost path from points - For each line segment
+  # my_spath <- gdistance::shortestPath(tr, origin = st_coordinates(pt1), goal = st_coordinates(pt2))
+  my_spath_sp <- gdistance::shortestPath(tr, origin = st_coordinates(pt1), goal = st_coordinates(pt2), output = 'SpatialLines')
+  line_sf <- my_spath_sp %>% st_as_sf()
+
+  plot(line_sf, col = 'red', add = TRUE)
+  plot(riv_smooth3$geometry)
+```
+
