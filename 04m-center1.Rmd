@@ -28,14 +28,14 @@ library(whitebox)
 ```{r}
 data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
 checked_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/03_rivmosaic-imgs')) %>% 
-  basename() %>% grep('ORNL', x = ., value = TRUE)
+  basename() %>% grep('STEI', x = ., value = TRUE)
 checked_site_yr
 
 basename(fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-rivgroups'), glob = glue('*{checked_site_yr}*MNDWI_01.tif')))
 ```
 
 ```{r}
-my_group_id <- 'ornl2'
+my_group_id <- 'wisconsin'
 ```
 
 # select river segment polygons
@@ -57,15 +57,17 @@ plot(my_mndwi)
 Try to mask -- might need to do on dell
 
 ```{r}
+plot(my_riv_fill10$geometry)
 riv_sv <- as(my_riv_fill10, "SpatVector")
 # 
-rm3 <- terra::mask(my_mndwi, mask = riv_sv, updatevalue = 0) # make ALL areas inside mask 1
+rm3 <- terra::mask(my_mndwi, mask = riv_sv, updatevalue = 0) # make ALL areas outside mask 0
+plot(rm3)
 riv_mask4 <- terra::mask(rm3, mask = riv_sv, updatevalue = 1, inverse = TRUE) # make ALL areas inside mask 1
 plot(riv_mask4)
 # 
-# my_mask_path <- glue('{data_dir}/centerlines/03_watermask-rivgroups/{checked_site_yr}-{my_group_id}-MNDWI_01mask.tif')
-# riv_mask4 <- terra::rast(my_mask_path)
-# plot(riv_mask4)
+my_mask_path <- glue('{data_dir}/centerlines/03_watermask-rivgroups/{checked_site_yr}-{my_group_id}-MNDWI_01mask.tif')
+riv_mask4 <- terra::rast(my_mask_path)
+plot(riv_mask4)
 ```
 
 Distance calculation with whitebox
@@ -171,6 +173,16 @@ riv_cent_sv <- terra::as.points(riv_sobel_mask01)
 riv_cent_sf <- riv_cent_sv %>% st_as_sf() %>% tibble::rowid_to_column('pt_id') %>% dplyr::mutate(rivgroup = my_group_id)
 ```
 
+
+```{r}
+sobel_dir <- glue('{data_dir}/centerlines/08_sobel/{checked_site_yr}')
+fs::dir_create(sobel_dir)
+riv_sobel %>% writeRaster(glue('{sobel_dir}/{checked_site_yr}-{my_group_id}-sobel.tif'), overwrite = TRUE)
+pts_dir <- glue('{data_dir}/centerlines/09_centerpts/{checked_site_yr}')
+fs::dir_create(pts_dir)
+riv_cent_sf %>% st_write(glue('{pts_dir}/{checked_site_yr}-{my_group_id}-pts_all.shp'), append = FALSE)
+```
+
 Find end points for each polygon
 
 ```{r}
@@ -194,28 +206,38 @@ leaflet() %>%
 # my_pt_ids <- c(3258, 16457, 16510, 17163)
 # my_pt_ids <- c(4007, 52949, 53148, 53843, 53105, 74285, 1363, 89827)
 # my_pt_ids <- c(18446, 20059, 20327, 23375, 1, 3851, 3865, 4096, 4069, 5172, 5177, 6662, 6490, 6781, 7454, 10278)
-my_pt_ids <- c(122938, 126972, 127709, 130124, 130532, 1458)
+# my_pt_ids <- c(122938, 126972, 127709, 130124, 130532, 1458)
+my_pt_ids <- c(7245, 3281, 
+               3311, 3997, 
+               4004, 4989, 5015, 
+               5038, 3106,
+               3105, 3072,
+               3071, 550, 
+               563, 930)
 my_pts_sf <- riv_cent_sf %>% dplyr::filter(pt_id %in% my_pt_ids)
+```
+
+```{r}
+pts_dir <- glue('{data_dir}/centerlines/09_centerpts/{checked_site_yr}')
+fs::dir_create(pts_dir)
+my_pts_sf %>% st_write(glue('{pts_dir}/{checked_site_yr}-{my_group_id}-pts.shp'), append = FALSE)
 ```
 
 LEAST COST PATH
 
-```{r}
-riv_sobel %>% writeRaster(glue('{data_dir}/centerlines/{checked_site_yr}-{my_group_id}-sobel.tif'), overwrite = TRUE)
-my_pts_sf %>% st_write(glue('{data_dir}/centerlines/{checked_site_yr}-{my_group_id}-pts.shp'), append = FALSE)
-```
+- ornl2
 
 ```{r}
 riv_sobel_r <- gdistance::raster(riv_sobel_mask)
 tr <- gdistance::transition(riv_sobel_r, function(x) 1/mean(x), directions = 8)
-tr %>% saveRDS(glue('{data_dir}/centerlines/{checked_site_yr}-{my_group_id}-tr-all.rds'))
+# tr %>% saveRDS(glue('{data_dir}/centerlines/{checked_site_yr}-{my_group_id}-tr-all.rds'))
 ```
 
 ```{r}
 # pt1 <- my_pts_sf %>% dplyr::filter(pt_id == 3258)
 # pt2 <- my_pts_sf %>% dplyr::filter(pt_id == 16457)
-pt1 <- my_pts_sf %>% dplyr::filter(pt_id == 122938)
-pt2 <- my_pts_sf %>% dplyr::filter(pt_id == 126972)
+pt1 <- my_pts_sf %>% dplyr::filter(pt_id == 563)
+pt2 <- my_pts_sf %>% dplyr::filter(pt_id == 930)
 # plot(my_riv_fill10$geometry)
 # plot(pt1, add = TRUE, bg = "green")
 # plot(pt2, add = TRUE, col - 'red')
@@ -241,7 +263,7 @@ leaflet() %>%
 save line
 
 ```{r}
-line_sf %>% st_write(glue('{checked_site_yr}-{my_group_id}-riverline1.shp'))
+line_sf %>% st_write(glue('{checked_site_yr}-{my_group_id}-riverline7.shp'))
 ```
 
 
@@ -249,7 +271,7 @@ line_sf %>% st_write(glue('{checked_site_yr}-{my_group_id}-riverline1.shp'))
 
 ```{r}
 site_sf <- fs::dir_ls(glob = glue('*{checked_site_yr}-{my_group_id}-riverline*.shp')) %>% purrr::map(~st_read(.x)) %>% bind_rows()
-site_sf %>% ggplot() + geom_sf(data = my_riv_fill10, fill = 'dodgerblue', lwd = 0) + geom_sf(col = 'yellow') + theme_void()
+site_sf %>% ggplot() + geom_sf(data = my_riv_fill10, fill = 'dodgerblue', col = 'dodgerblue', lwd = 2) + geom_sf(col = 'yellow', lwd = 0.5) + theme_void()
 ggsave(glue('{checked_site_yr}-{my_group_id}.pdf'), width = 12)
 site_sf %>% st_write(glue('{checked_site_yr}-{my_group_id}-riverlines.shp'), append = FALSE)
 ```
