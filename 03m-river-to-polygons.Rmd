@@ -1,0 +1,131 @@
+---
+title: "Mask to Polygons"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(terra)
+library(dplyr)
+library(sf)
+library(glue)
+library(fs)
+library(stringr)
+library(stars)
+library(scico)
+library(ggplot2)
+library(whitebox)
+```
+
+# river mosaic to smooth polygons
+
+```{r}
+data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
+checked_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/03_rivmosaic-imgs')) %>% 
+  basename() %>% grep('ORNL', x = ., value = TRUE)
+checked_site_yr
+basename(fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-rivgroups'), glob = glue('*{checked_site_yr}*MNDWI_01.tif')))
+basename(fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-rivgroups'), glob = glue('*{checked_site_yr}*AWEI.tif')))
+```
+
+```{r}
+my_group_id <- 'ornl2'
+```
+
+
+```{r}
+my_wi_path <- glue('{data_dir}/centerlines/03_watermask-rivgroups/{checked_site_yr}-{my_group_id}-MNDWI_01.tif')
+# my_wi_path <- glue('{data_dir}/centerlines/03_watermask-rivgroups/{checked_site_yr}-{my_group_id}-AWEI.tif')
+my_wi <- terra::rast(my_wi_path)
+plot(my_wi)
+```
+
+Max filter
+
+```{r}
+    # max filter for noise/tree canopies - widens the stream a bit
+my_wi_max = terra::focal(my_wi, 
+                   w = matrix(1, nrow = 3, ncol = 3), 
+                   expand = TRUE,
+                   fun = max)
+
+plot(my_wi_max)
+
+```
+
+```{r}
+riv_polygon <- my_wi_max %>% terra::as.polygons()
+riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(.[[1]] == 1)
+# SMOOTH with ksmooth 20
+riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
+riv_smooth_nocrumbs <- riv_smooth %>% smoothr::drop_crumbs(threshold = 10)
+```
+
+```{r}
+riv_smooth2 <- riv_smooth_nocrumbs %>% st_cast(to = "POLYGON")
+riv_smooth3 <- riv_smooth2 %>% 
+  dplyr::mutate(rand_id = sample(1:nrow(riv_smooth2), nrow(riv_smooth2), replace = FALSE))
+
+# riv_smooth3 %>% st_write(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}.shp'))
+riv_smooth3 %>% st_write(glue('{data_dir}/centerlines/05_riv_smooth_polygons_MNDWI/{checked_site_yr}-{my_group_id}.shp'))
+```
+
+
+Select polygons
+
+```{r}
+library(leaflet)
+
+riv4326 <- st_transform(riv_smooth3, 'EPSG:4326')
+
+my_pal <- colorNumeric('viridis', na.color = "#00000000", domain = 1:nrow(riv4326))
+
+leaflet() %>%
+  addTiles(group = 'bg') %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = 'esri') %>%
+  addPolygons(data = riv4326, color = 'white', fillColor = ~my_pal(rand_id), 
+              group = 'riv', weight = 1,
+              fillOpacity = 1, opacity = 1, label = ~glue('{rand_id}')) %>%
+  addLayersControl(overlayGroups = c('bg','riv', 'esri'))
+```
+
+```{r}
+# my_riv_ids <- c(77, 45)
+# my_riv_ids <- c(1024, 1038, 351)
+# my_riv_ids <- c(73, 108, 181, 42, 4, 12, 163)
+# my_riv_ids <- c(202, 82, 135, 49, 218, 141, 34)
+my_riv_ids <- c(66, 27, 137)
+my_riv_sf <- riv_smooth3 %>% dplyr::filter(rand_id %in% my_riv_ids)
+my_riv_fill10 <- my_riv_sf %>% smoothr::fill_holes(threshold = 10)
+
+
+```
+
+```{r}
+gg1 <- ggplot() +
+  # geom_sf(data = my_boxes, col = 'red', fill = 'red', alpha = 0.1, lwd = 0.1) +
+  # geom_sf(data = riv_smooth, col = 'blue', fill = 'dodgerblue', alpha = 0.5, lwd = 0.1) +
+  # geom_sf(data = riv_smooth3, aes(fill = rand_id, col = rand_id), alpha = 0.1) +
+  geom_sf(data = my_riv_fill10, aes(fill = rand_id, col = rand_id), alpha = 0.9) +
+  scale_fill_viridis_c(direction = -1) +
+  scale_color_viridis_c(direction = -1) +
+  # scico::scale_fill_scico(palette = 'batlow') +
+  # geom_sf_text(data = my_boxes, aes(label = glue('{labx}\n{laby}')), size = 1) +
+  theme_void() +
+  ggtitle(glue('{checked_site_yr}'))
+
+ggsave(glue('river_{checked_site_yr}-{my_group_id}.pdf'), gg1)
+# ggsave(glue('map1-{checked_site_yr}-{my_group_id}_colors.pdf'), gg1)
+```
+
+```{r}
+my_riv_fill10 %>% 
+  st_write(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}-riverfill10.shp'), append = FALSE)
+my_riv_sf %>% 
+  st_write(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}-river.shp'), append = FALSE)
+```
+

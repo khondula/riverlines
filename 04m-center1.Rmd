@@ -1,0 +1,257 @@
+---
+title: "centerlines"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(terra)
+library(dplyr)
+library(sf)
+library(glue)
+library(fs)
+library(stringr)
+library(stars)
+library(scico)
+library(ggplot2)
+library(whitebox)
+```
+
+# river mosaic to smooth polygons
+
+```{r}
+data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
+checked_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/03_rivmosaic-imgs')) %>% 
+  basename() %>% grep('ORNL', x = ., value = TRUE)
+checked_site_yr
+
+basename(fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-rivgroups'), glob = glue('*{checked_site_yr}*MNDWI_01.tif')))
+```
+
+```{r}
+my_group_id <- 'ornl2'
+```
+
+# select river segment polygons
+
+# mask mndwi with smoothed river
+
+```{r}
+my_riv_fill10 <- st_read(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}-riverfill10.shp'))
+```
+
+```{r}
+# rm(my_awei)
+# rm(my_awei_max)
+my_mndwi_path <- glue('{data_dir}/centerlines/03_watermask-rivgroups/{checked_site_yr}-{my_group_id}-MNDWI_01.tif')
+my_mndwi <- terra::rast(my_mndwi_path)
+plot(my_mndwi)
+```
+
+Try to mask -- might need to do on dell
+
+```{r}
+riv_sv <- as(my_riv_fill10, "SpatVector")
+# 
+rm3 <- terra::mask(my_mndwi, mask = riv_sv, updatevalue = 0) # make ALL areas inside mask 1
+riv_mask4 <- terra::mask(rm3, mask = riv_sv, updatevalue = 1, inverse = TRUE) # make ALL areas inside mask 1
+plot(riv_mask4)
+# 
+# my_mask_path <- glue('{data_dir}/centerlines/03_watermask-rivgroups/{checked_site_yr}-{my_group_id}-MNDWI_01mask.tif')
+# riv_mask4 <- terra::rast(my_mask_path)
+# plot(riv_mask4)
+```
+
+Distance calculation with whitebox
+
+```{r}
+rcl_matrix <- matrix(c(0, 1, 1, 0), ncol = 2, byrow = TRUE)
+riv_mask_wb <- terra::classify(riv_mask4, rcl = rcl_matrix)
+
+plot(riv_mask_wb)
+# zoom(riv_mask_wb)
+# save locally for whitebox calculation
+
+wb_dir <- glue('06_rivmask_4wb/{checked_site_yr}')
+fs::dir_create(wb_dir)
+
+wb_filename1 <- glue('{wb_dir}/rivmask_wb-{my_group_id}.tif')
+riv_mask_wb %>% terra::writeRaster(wb_filename1, overwrite = TRUE)
+```
+
+# whitebox distance calculation
+
+```{r}
+wb_dir2 <- glue('07_wb-dist/{checked_site_yr}')
+fs::dir_create(wb_dir2)
+wb_filename2 <- glue('{wb_dir2}/wb_dists-{my_group_id}.tif')
+
+wbt_euclidean_distance(
+  input = wb_filename1,
+  output = wb_filename2,
+  compress_rasters = TRUE,
+  verbose_mode = TRUE)
+
+riv_dist <- terra::rast(wb_filename2)
+plot(riv_dist)
+# riv_dist_mask <- terra::mask(riv_dist, riv_smooth_sv, inverse = TRUE)
+# zoom(riv_dist)
+# plot(riv_dist_mask)
+# wb_dir2c <- glue('{data_dir}/centerlines/07_wb-dist/{basename(my_site_dir)}')
+# fs::dir_create(wb_dir2c)
+# riv_dist %>% terra::wrap() %>% saveRDS(glue('{wb_dir2c}/wb_dists.rds'))
+# riv_dist %>% terra::writeRaster(glue('{wb_dir2c}/wb_dists.tif'))
+
+# plot(riv_dist)
+```
+
+# edge detection
+
+```{r}
+
+w_sobel1 <- matrix(c(-1, -2, -1, 0, 0, 0, 1, 2, 1), nrow = 3)
+w_sobel2 <- matrix(c(1, 2, 1, 0, 0, 0, -1, -2, -1), byrow = TRUE, nrow = 3)
+
+riv_dists_sobel1 = terra::focal(riv_dist, 
+                   w = w_sobel1, 
+                   expand = TRUE)
+riv_dists_sobel2 = terra::focal(riv_dist, 
+                   w = w_sobel2, 
+                   expand = TRUE)
+
+riv_sobel <- sqrt(riv_dists_sobel1^2 + riv_dists_sobel2^2)
+# plot(riv_sobel)
+# zoom(riv_sobel)
+```
+
+
+```{r}
+# remask with river so areas outside are NA
+riv_sobel_mask <- terra::mask(riv_sobel, mask = riv_sv, touches = TRUE)
+
+# plot(riv_sobel_mask)
+# plot(riv_sobel)
+# zoom(riv_sobel_mask)
+
+# riv_sobel_mask <- terra::mask(riv_sobel, mask = riv_smooth_sv, touches = TRUE)
+# riv_sobel_mask2 <- terra::classify(riv_sobel_mask, matrix(c(NA, minmax(riv_sobel_mask)[2]), nrow = 1))
+
+# plot(riv_sobel_mask2)
+# zoom(riv_sobel_mask2)
+# create points to manually identify river segments
+# low threshold for zero crossings
+my_val <- quantile(terra::values(riv_sobel_mask), 0.01, na.rm = TRUE) # 0.2 for area, 0.01 for points? 
+
+rcl_matrix_pts <- matrix(c(-Inf, my_val, 1, 
+                         my_val, Inf, NA), ncol = 3, byrow = TRUE)
+
+riv_sobel_mask01 <- terra::classify(riv_sobel_mask, rcl = rcl_matrix_pts, include.lowest = FALSE)
+
+# # now higher threshold for making tr calculation easier
+# my_val2 <- quantile(terra::values(riv_sobel), 0.25, na.rm = TRUE)
+# my_val2 <- quantile(terra::values(riv_sobel_mask), 0.5, na.rm = TRUE)
+# my_val2
+# plot(riv_sobel)
+# rcl_matrix_area <- matrix(c(my_val2, Inf, NA), ncol = 3, byrow = TRUE)
+# riv_sobel_mask20 <- terra::classify(riv_sobel_mask, rcl = rcl_matrix_area, include.lowest = FALSE)
+
+# plot(riv_sobel_mask20)
+# zoom(riv_sobel_mask20)
+```
+
+```{r}
+# convert to points and save
+riv_cent_sv <- terra::as.points(riv_sobel_mask01)
+riv_cent_sf <- riv_cent_sv %>% st_as_sf() %>% tibble::rowid_to_column('pt_id') %>% dplyr::mutate(rivgroup = my_group_id)
+```
+
+Find end points for each polygon
+
+```{r}
+library(leaflet)
+pts4326 <- st_transform(riv_cent_sf, 'EPSG:4326')
+riv4326 <- my_riv_fill10 %>% st_transform('EPSG:4326') %>% tibble::rowid_to_column()
+my_pal <- colorNumeric('viridis', domain = 1:nrow(riv4326))
+
+leaflet() %>%
+  addTiles(group = 'bg') %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = 'esri') %>%
+  addPolygons(data = riv4326, color = ~my_pal(rowid), group = 'riv',
+              fillOpacity = 0.5, opacity = 1, label = ~glue('{rand_id}')) %>%
+   addMarkers(data = pts4326,   
+             clusterOptions = markerClusterOptions(),
+             group = 'pts', popup = ~glue('point {pt_id}')) %>%
+  addLayersControl(overlayGroups = c('bg','riv', 'esri', 'pts'))
+```
+
+```{r}
+# my_pt_ids <- c(3258, 16457, 16510, 17163)
+# my_pt_ids <- c(4007, 52949, 53148, 53843, 53105, 74285, 1363, 89827)
+# my_pt_ids <- c(18446, 20059, 20327, 23375, 1, 3851, 3865, 4096, 4069, 5172, 5177, 6662, 6490, 6781, 7454, 10278)
+my_pt_ids <- c(122938, 126972, 127709, 130124, 130532, 1458)
+my_pts_sf <- riv_cent_sf %>% dplyr::filter(pt_id %in% my_pt_ids)
+```
+
+LEAST COST PATH
+
+```{r}
+riv_sobel %>% writeRaster(glue('{data_dir}/centerlines/{checked_site_yr}-{my_group_id}-sobel.tif'), overwrite = TRUE)
+my_pts_sf %>% st_write(glue('{data_dir}/centerlines/{checked_site_yr}-{my_group_id}-pts.shp'), append = FALSE)
+```
+
+```{r}
+riv_sobel_r <- gdistance::raster(riv_sobel_mask)
+tr <- gdistance::transition(riv_sobel_r, function(x) 1/mean(x), directions = 8)
+tr %>% saveRDS(glue('{data_dir}/centerlines/{checked_site_yr}-{my_group_id}-tr-all.rds'))
+```
+
+```{r}
+# pt1 <- my_pts_sf %>% dplyr::filter(pt_id == 3258)
+# pt2 <- my_pts_sf %>% dplyr::filter(pt_id == 16457)
+pt1 <- my_pts_sf %>% dplyr::filter(pt_id == 122938)
+pt2 <- my_pts_sf %>% dplyr::filter(pt_id == 126972)
+# plot(my_riv_fill10$geometry)
+# plot(pt1, add = TRUE, bg = "green")
+# plot(pt2, add = TRUE, col - 'red')
+# least cost path from points - For each line segment
+my_spath_sp <- gdistance::shortestPath(tr, origin = st_coordinates(pt1), goal = st_coordinates(pt2), output = 'SpatialLines')
+line_sf <- my_spath_sp %>% st_as_sf()
+ggplot() + geom_sf(data = my_riv_fill10, fill = 'dodgerblue', lwd = 0) + geom_sf(data = line_sf)
+```
+
+```{r}
+library(leaflet)
+line4326 <- st_transform(line_sf, 'EPSG:4326')
+
+leaflet() %>%
+  addTiles(group = 'bg') %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = 'esri') %>%
+  addPolygons(data = riv4326, color = 'cyan', group = 'riv',
+              fillOpacity = 1, opacity = 1, label = ~glue('{rand_id}')) %>%
+  addPolylines(data = line4326, col = 'red', opacity = 1, group = 'line') %>%
+  addLayersControl(overlayGroups = c('bg','riv', 'esri', 'line'))
+```
+
+save line
+
+```{r}
+line_sf %>% st_write(glue('{checked_site_yr}-{my_group_id}-riverline1.shp'))
+```
+
+
+## end!
+
+```{r}
+site_sf <- fs::dir_ls(glob = glue('*{checked_site_yr}-{my_group_id}-riverline*.shp')) %>% purrr::map(~st_read(.x)) %>% bind_rows()
+site_sf %>% ggplot() + geom_sf(data = my_riv_fill10, fill = 'dodgerblue', lwd = 0) + geom_sf(col = 'yellow') + theme_void()
+ggsave(glue('{checked_site_yr}-{my_group_id}.pdf'), width = 12)
+site_sf %>% st_write(glue('{checked_site_yr}-{my_group_id}-riverlines.shp'), append = FALSE)
+```
+
+

@@ -30,7 +30,7 @@ fs::dir_ls(glue('{data_dir}/centerlines/01_watermask-imgs')) %>% basename()
 fs::dir_ls(glue('{data_dir}/centerlines/01_AWEI')) %>% basename()
 
 my_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename() %>%
-  grep('ORNL', x = ., value = TRUE)
+  grep('TOOL', x = ., value = TRUE)
 my_site_yr
 ```
 
@@ -46,7 +46,7 @@ if(length(mask_files)>300){message('lots of files gdal might not be happy!')}
 # mosaic with gdal
 
 ```{r}
-gdalcommand <- glue::glue('gdalbuildvrt tmp/mosaic.vrt {glue_collapse(mask_files, sep = " ")}')
+gdalcommand <- glue::glue('gdalbuildvrt tmp/mosaic.vrt {glue_collapse(mask_files[1:300], sep = " ")}')
 system(gdalcommand)
 ```
 
@@ -95,7 +95,7 @@ mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif')) %>% as.character()
 # mosaic with gdal
 
 ```{r}
-gdalcommand <- glue::glue('gdalbuildvrt mosaic2.vrt {glue_collapse(mask_files, sep = " ")}')
+gdalcommand <- glue::glue('gdalbuildvrt mosaic2.vrt {glue_collapse(mask_files[1:300], sep = " ")}')
 system(gdalcommand)
 gdalcommand2 <- glue('gdal_translate -of GTiff mosaic2.vrt tmp/mosaic-{my_site_yr}.tif')
 system(gdalcommand2)

@@ -27,9 +27,9 @@ library(ggplot2)
 # Set up
 
 ```{r}
-my_aop_yr <- '2021'
-my_aop_site <- 'ORNL'
-my_domain <- 'D07'
+my_aop_yr <- '2020'
+my_aop_site <- 'MCDI'
+my_domain <- 'D06'
 ```
 
 get all L3 files for site
@@ -43,7 +43,7 @@ my_site_files <- glue('{my_site_dir}/L3/Spectrometer/Reflectance') %>%
 
 
 ```{r}
-my_h5_file <- my_site_files[2]
+# my_h5_file <- my_site_files[2]
 ```
 
 

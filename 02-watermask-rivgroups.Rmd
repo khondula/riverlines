@@ -16,7 +16,7 @@ fs::dir_ls(glue('{data_dir}/centerlines/01_watermask-imgs')) %>% basename()
 fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename()
 
 my_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename() %>%
-  grep('DELA', x = ., value = TRUE)
+  grep('UNDE', x = ., value = TRUE)
 ```
 
 # MNDWI
@@ -30,14 +30,13 @@ mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif')) %>% as.character()
 ```{r}
 rivercheck_dir <- glue('{data_dir}/centerlines/riverchecks')
 check_df <- readr::read_csv(glue('{rivercheck_dir}/{my_site_yr}-rivercheck-notes.csv')) %>% dplyr::filter(river_check)
+if(!'group' %in% names(check_df)){check_df <- check_df %>% dplyr::rename(group = notes)}
 unique(check_df$group)
-
 ```
 
 ```{r}
-
-my_group <- NA
-my_group_id <- 'dela'
+my_group <- 'east branch presque isle river' # NA if no groups
+my_group_id <- 'presque'
 ```
 
 ```{r}
@@ -121,5 +120,5 @@ gg1 <- ggplot() +
   
 plot_dir <- glue('{data_dir}/centerlines/03_rivmosaic-imgs/{my_site_yr}')
 fs::dir_create(plot_dir)
-ggsave(glue('{plot_dir}/{my_site_yr}-{my_group_id}-AWEI.pdf'), gg1, height = 12, width = 8)
+ggsave(glue('{plot_dir}/{my_site_yr}-{my_group_id}-AWEI.pdf'), gg1, height = 12, width = 12) # adjust fig size if needed
 ```
