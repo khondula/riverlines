@@ -26,16 +26,16 @@ library(whitebox)
 # river mosaic to smooth polygons
 
 ```{r}
-data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
+data_dir <- 'S:/users/khondula/DATA'
 checked_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/03_rivmosaic-imgs')) %>% 
-  basename() %>% grep('DELA', x = ., value = TRUE)
+  basename() %>% grep('ORNL', x = ., value = TRUE)
 checked_site_yr
 
 basename(fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-rivgroups'), glob = glue('*{checked_site_yr}*MNDWI_01.tif')))
 ```
 
 ```{r}
-my_group_id <- 'dela'
+my_group_id <- 'ornl2'
 ```
 
 # select river segment polygons
@@ -43,7 +43,7 @@ my_group_id <- 'dela'
 # mask mndwi with smoothed river
 
 ```{r}
-my_riv_fill10 <- st_read(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}1-riverfill10.shp'))
+my_riv_fill10 <- st_read(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}-riverfill10.shp'))
 ```
 
 ```{r}
@@ -71,10 +71,11 @@ riv_sv <- as(my_riv_fill10, "SpatVector")
 # riv_mask3 <- terra::mask(my_mndwi, mask = riv_sv, inverse = FALSE, updatevalue = 1) # make ALL areas inside mask 1
 riv_mask3 <- terra::mask(my_mndwi, mask = riv_sv, updatevalue = 0) # make ALL areas inside mask 1
 riv_mask4 <- terra::mask(riv_mask3, mask = riv_sv, updatevalue = 1, inverse = TRUE) # make ALL areas inside mask 1
-?mask
 
 plot(my_mndwi)
-plot(riv_mask3)
+plot(riv_mask4)
+maskpath <- glue('{data_dir}/centerlines/03_watermask-rivgroups/{checked_site_yr}-{my_group_id}-MNDWI_01mask.tif')
+riv_mask4 %>% terra::writeRaster(filename = maskpath, overwrite = TRUE)
 # zoom(riv_mask3)
 ```
 
@@ -102,11 +103,11 @@ wb_dir2 <- glue('07_wb-dist/{checked_site_yr}')
 fs::dir_create(wb_dir2)
 wb_filename2 <- glue('{wb_dir2}/wb_dists-{my_group_id}.tif')
 
-wbt_euclidean_distance(
-  input = wb_filename1,
-  output = wb_filename2,
-  compress_rasters = TRUE,
-  verbose_mode = TRUE)
+# wbt_euclidean_distance(
+#   input = wb_filename1,
+#   output = wb_filename2,
+#   compress_rasters = TRUE,
+#   verbose_mode = TRUE)
 
 riv_dist <- terra::rast(wb_filename2)
 plot(riv_dist)
