@@ -26,18 +26,19 @@ library(whitebox)
 ```{r}
 data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
 checked_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/03_rivmosaic-imgs')) %>% 
-  basename() %>% grep('ORNL', x = ., value = TRUE)
+  basename() %>% grep('LENO', x = ., value = TRUE)
 checked_site_yr
 basename(fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-rivgroups'), glob = glue('*{checked_site_yr}*MNDWI_01.tif')))
 basename(fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-rivgroups'), glob = glue('*{checked_site_yr}*AWEI.tif')))
 ```
 
 ```{r}
-my_group_id <- 'ornl2'
+my_group_id <- 'tombigbee'
 ```
 
 
 ```{r}
+which_index <- 'MNDWI'
 my_wi_path <- glue('{data_dir}/centerlines/03_watermask-rivgroups/{checked_site_yr}-{my_group_id}-MNDWI_01.tif')
 # my_wi_path <- glue('{data_dir}/centerlines/03_watermask-rivgroups/{checked_site_yr}-{my_group_id}-AWEI.tif')
 my_wi <- terra::rast(my_wi_path)
@@ -51,7 +52,7 @@ Max filter
 my_wi_max = terra::focal(my_wi, 
                    w = matrix(1, nrow = 3, ncol = 3), 
                    expand = TRUE,
-                   fun = max)
+                   fun = max, na.rm = TRUE)
 
 plot(my_wi_max)
 
@@ -63,17 +64,43 @@ riv_polygon_sf <- riv_polygon %>% st_as_sf() %>% dplyr::filter(.[[1]] == 1)
 # SMOOTH with ksmooth 20
 riv_smooth <- riv_polygon_sf %>% smoothr::smooth(method = "ksmooth", smoothness = 20)
 riv_smooth_nocrumbs <- riv_smooth %>% smoothr::drop_crumbs(threshold = 10)
-```
-
-```{r}
 riv_smooth2 <- riv_smooth_nocrumbs %>% st_cast(to = "POLYGON")
 riv_smooth3 <- riv_smooth2 %>% 
   dplyr::mutate(rand_id = sample(1:nrow(riv_smooth2), nrow(riv_smooth2), replace = FALSE))
 
 # riv_smooth3 %>% st_write(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}.shp'))
-riv_smooth3 %>% st_write(glue('{data_dir}/centerlines/05_riv_smooth_polygons_MNDWI/{checked_site_yr}-{my_group_id}.shp'))
+riv_smooth3 %>% st_write(glue('{data_dir}/centerlines/05_riv_smooth_polygons/{checked_site_yr}-{my_group_id}-{which_index}.shp'), append = FALSE)
 ```
 
+```{r}
+ggplot() +
+  geom_sf(data = riv_smooth3, aes(fill = rand_id, col = rand_id), alpha = 0.5) +
+  scale_fill_viridis_c(direction = -1) +
+  scale_color_viridis_c(direction = -1) +
+  # scico::scale_fill_scico(palette = 'batlow') +
+  theme_void() + theme(legend.position = 'none') +
+  ggtitle(glue('{checked_site_yr} {my_group_id}'))
+
+ggsave(glue('figs/riv_smooth_polygons/{checked_site_yr}-{my_group_id}-{which_index}.pdf'), width = 12, height = 12)
+```
+
+For spatially intermittent rivers... can be combined 
+```{r}
+# ggplot() +
+#   geom_sf(data = st_buffer(riv_smooth3, 30), aes(fill = rand_id, col = rand_id), alpha = 0.25) +
+#   geom_sf(data = st_buffer(riv_smooth3, 10), aes(fill = rand_id, col = rand_id), alpha = 0.5) +
+#   scale_fill_viridis_c(direction = -1) +
+#   scale_color_viridis_c(direction = -1) +
+#   # scico::scale_fill_scico(palette = 'batlow') +
+#   theme_void() + theme(legend.position = 'none') +
+#   ggtitle(glue('{checked_site_yr} {my_group_id}'))
+# 
+# riv30m <- st_buffer(riv_smooth3, 30)
+# riv30m %>% st_union() %>% st_union(by_feature = TRUE) %>% st_as_sf() %>% st_cast(to = "POLYGON") %>% st_buffer(-10) %>% plot()
+# ?st_union
+# ?st_combine
+
+```
 
 Select polygons
 
@@ -94,11 +121,21 @@ leaflet() %>%
 ```
 
 ```{r}
+lines_df <- readxl::read_excel('line_segment_info.xlsx') %>%
+  dplyr::filter(site_yr_id %in% checked_site_yr)
+lines_df
+my_riv_ids <- lines_df[['polygon_id']]
+my_riv_ids
+```
+
+```{r}
 # my_riv_ids <- c(77, 45)
 # my_riv_ids <- c(1024, 1038, 351)
 # my_riv_ids <- c(73, 108, 181, 42, 4, 12, 163)
 # my_riv_ids <- c(202, 82, 135, 49, 218, 141, 34)
-my_riv_ids <- c(66, 27, 137)
+# my_riv_ids <- c(483, 455, 298, 58, 231, 290, 477)
+# my_riv_ids <- c(124, 244, 116)
+# my_riv_ids <- c(145, 175)
 my_riv_sf <- riv_smooth3 %>% dplyr::filter(rand_id %in% my_riv_ids)
 my_riv_fill10 <- my_riv_sf %>% smoothr::fill_holes(threshold = 10)
 
@@ -115,11 +152,13 @@ gg1 <- ggplot() +
   scale_color_viridis_c(direction = -1) +
   # scico::scale_fill_scico(palette = 'batlow') +
   # geom_sf_text(data = my_boxes, aes(label = glue('{labx}\n{laby}')), size = 1) +
-  theme_void() +
+  theme_void() + theme(legend.position = 'none') +
   ggtitle(glue('{checked_site_yr}'))
 
 ggsave(glue('river_{checked_site_yr}-{my_group_id}.pdf'), gg1)
 # ggsave(glue('map1-{checked_site_yr}-{my_group_id}_colors.pdf'), gg1)
+
+gg1
 ```
 
 ```{r}
