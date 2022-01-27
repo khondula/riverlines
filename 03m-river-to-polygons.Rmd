@@ -26,14 +26,14 @@ library(whitebox)
 ```{r}
 data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
 checked_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/03_rivmosaic-imgs')) %>% 
-  basename() %>% grep('LENO', x = ., value = TRUE)
+  basename() %>% grep('TOOL', x = ., value = TRUE)
 checked_site_yr
 basename(fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-rivgroups'), glob = glue('*{checked_site_yr}*MNDWI_01.tif')))
 basename(fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-rivgroups'), glob = glue('*{checked_site_yr}*AWEI.tif')))
 ```
 
 ```{r}
-my_group_id <- 'tombigbee'
+my_group_id <- 'tool3'
 ```
 
 
@@ -121,25 +121,18 @@ leaflet() %>%
 ```
 
 ```{r}
-lines_df <- readxl::read_excel('line_segment_info.xlsx') %>%
-  dplyr::filter(site_yr_id %in% checked_site_yr)
+all_lines_df <- readxl::read_excel('line_segment_info.xlsx')
+all_lines_df %>% readr::write_csv('ref/line_segment_info.csv')
+lines_df <- all_lines_df %>%
+  dplyr::filter(site_yr_id %in% checked_site_yr, river_group_id %in% my_group_id)
 lines_df
 my_riv_ids <- lines_df[['polygon_id']]
 my_riv_ids
 ```
 
 ```{r}
-# my_riv_ids <- c(77, 45)
-# my_riv_ids <- c(1024, 1038, 351)
-# my_riv_ids <- c(73, 108, 181, 42, 4, 12, 163)
-# my_riv_ids <- c(202, 82, 135, 49, 218, 141, 34)
-# my_riv_ids <- c(483, 455, 298, 58, 231, 290, 477)
-# my_riv_ids <- c(124, 244, 116)
-# my_riv_ids <- c(145, 175)
 my_riv_sf <- riv_smooth3 %>% dplyr::filter(rand_id %in% my_riv_ids)
 my_riv_fill10 <- my_riv_sf %>% smoothr::fill_holes(threshold = 10)
-
-
 ```
 
 ```{r}

@@ -28,14 +28,14 @@ library(whitebox)
 ```{r}
 data_dir <- '/Volumes/AOPScratch/users/khondula/DATA'
 checked_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/03_rivmosaic-imgs')) %>% 
-  basename() %>% grep('LENO', x = ., value = TRUE)
+  basename() %>% grep('TOOL', x = ., value = TRUE)
 checked_site_yr
 
 basename(fs::dir_ls(glue('{data_dir}/centerlines/03_watermask-rivgroups'), glob = glue('*{checked_site_yr}*MNDWI_01.tif')))
 ```
 
 ```{r}
-my_group_id <- 'tombigbee'
+my_group_id <- 'tool3'
 ```
 
 # select river segment polygons
@@ -63,10 +63,10 @@ riv_sv <- as(my_riv_fill10, "SpatVector")
 
 Mask on mac
 ```{r}
-rm3 <- terra::mask(my_mndwi, mask = riv_sv, updatevalue = 0) # make ALL areas outside mask 0
-plot(rm3)
-riv_mask4 <- terra::mask(rm3, mask = riv_sv, updatevalue = 1, inverse = TRUE) # make ALL areas inside mask 1
-plot(riv_mask4)
+# rm3 <- terra::mask(my_mndwi, mask = riv_sv, updatevalue = 0) # make ALL areas outside mask 0
+# plot(rm3)
+# riv_mask4 <- terra::mask(rm3, mask = riv_sv, updatevalue = 1, inverse = TRUE) # make ALL areas inside mask 1
+# plot(riv_mask4)
 # 
 
 ```
@@ -181,8 +181,10 @@ leaflet() %>%
 ```
 
 ```{r}
-lines_df <- readxl::read_excel('line_segment_info.xlsx') %>%
-  dplyr::filter(site_yr_id %in% checked_site_yr)
+all_lines_df <- readxl::read_excel('line_segment_info.xlsx')
+all_lines_df %>% readr::write_csv('ref/line_segment_info.csv')
+lines_df <- all_lines_df %>%
+  dplyr::filter(site_yr_id %in% checked_site_yr, river_group_id %in% my_group_id)
 lines_df
 my_seg_ids <- lines_df[['seg_id']]
 my_seg_ids
@@ -190,18 +192,6 @@ my_seg_ids
 
 ```{r}
 my_pt_ids <- unique(c(lines_df[['pt1']], lines_df[['pt2']]))
-# my_pt_ids <- c(3258, 16457, 16510, 17163)
-# my_pt_ids <- c(4007, 52949, 53148, 53843, 53105, 74285, 1363, 89827)
-# my_pt_ids <- c(18446, 20059, 20327, 23375, 1, 3851, 3865, 4096, 4069, 5172, 5177, 6662, 6490, 6781, 7454, 10278)
-# my_pt_ids <- c(122938, 126972, 127709, 130124, 130532, 1458)
-# my_pt_ids <- c(7245, 3281, 
-#                3311, 3997, 
-#                4004, 4989, 5015, 
-#                5038, 3106,
-#                3105, 3072,
-#                3071, 550, 
-#                563, 930)
-# my_pt_ids <- c(1, 15958)
 my_pts_sf <- riv_cent_sf %>% dplyr::filter(pt_id %in% my_pt_ids)
 ```
 
@@ -268,7 +258,7 @@ site_sf %>%
   geom_sf(data = my_riv_fill10, fill = 'dodgerblue', col = 'dodgerblue') +
   # geom_sf(data = my_riv_fill10, aes(fill = factor(rand_id), col = factor(rand_id))) +
   # scale_fill_viridis_d() + scale_color_viridis_d() +
-  geom_sf(col = 'red', alpha = 0.5) + 
+  geom_sf(col = 'red') + 
   theme_void()
 
 ggsave(glue('{checked_site_yr}-{my_group_id}.pdf'), width = 12)
@@ -291,4 +281,17 @@ leaflet() %>%
 ## end!
 
 
+```{r}
+glue('{data_dir}/centerlines/10_centerlines') %>% fs::dir_ls() %>% basename()
+```
+
+```{r}
+dir_ls(glue('{data_dir}/centerlines/10_centerlines'), glob = glue('*-riverlines.shp'), recurse = TRUE) %>% 
+  purrr::map(~st_read(.x)) %>%
+  purrr::map(~st_union(.x)) %>% 
+  purrr::map(~st_length(.x)/1000)
+
+# site_sf %>% st_union() %>% st_length()/1000
+# site_sf$length_km %>% sum()
+```
 
