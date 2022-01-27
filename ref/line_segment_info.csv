@@ -1,91 +1,96 @@
-domain,site,year,site_yr_id,river_group_id,river_name,water_index,polygon_id,seg_id,description,pt1,pt2,downstream_pt,upstream_pt
-D19,BONA,2021,2021_BONA_4,chatanika,Chatanika River,NA,175,175,east side of flight box to small bridge,390,2439,2445,"NA"
-D19,BONA,2021,2021_BONA_4,chatanika,Chatanika River,NA,145,145,small bridge to west side of flight box,2445,6164,"NA",2439
-D12,YELL,2020,2020_YELL_3,yellowstone,Yellowstone River,NA,159,159main,north side of flight box to bridge,1,8695,"NA",8698
-D12,YELL,2020,2020_YELL_3,yellowstone,Hellroaring Creek,NA,159,159a,tributary to yellowstone,1167,1,NA,NA
-D12,YELL,2020,2020_YELL_3,yellowstone,Lamar River,NA,159,159b,tributary to yellowstone,8424,1,NA,NA
-D12,YELL,2020,2020_YELL_3,yellowstone,Yellowstone River,NA,73,73a,bridge to south edge of flight box,8698,11084,8698,"NA"
-D12,YELL,2020,2020_YELL_3,yellowstone,Tower Creek,NA,73,73b,tributary to yellowstone including tower falls,10590,8698,NA,NA
-D12,YELL,2020,2020_YELL_3,yellowstone,Tower Creek,NA,82,82,upstream of tower falls,10700,10636,NA,NA
-D12,YELL,2020,2020_YELL_3,yellowstone,Tower Creek,NA,115,115,upstream of tower falls,10788,10730,NA,NA
-D12,YELL,2020,2020_YELL_3,yellowstone,Tower Creek,NA,7,7,upstream of Grand Loop Road,10915,10841,NA,NA
-D12,YELL,2020,2020_YELL_3,yellowstone,Tower Creek,NA,83,83,upstream of Grand Loop Road,11044,10931,NA,NA
-D12,YELL,2020,2020_YELL_3,yellowstone,Tower Creek,NA,94,94,upstream of campground,11451,11053,NA,NA
-D12,YELL,2020,2020_YELL_3,lava,Lava Creek,NA,NA,NA,"includes Undine Falls, spatially intermittent",NA,NA,NA,NA
-D06,UKFS,2020,2020_UKFS_5,kansas,Kansas River,NA,32,32,upstream of Bowerstock dam,246,4104,NA,NA
-D06,UKFS,2020,2020_UKFS_5,kansas,Kansas River,NA,1,1,between Kansas turnpike and Vermont street,4688,7951,NA,NA
-D06,UKFS,2020,2020_UKFS_5,kansas,Kansas River,NA,96,96,through and downstream of bowerstock dam,8654,12885,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Flint River,NA,79,79main,top to bottom of flight box,5680,26301,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,79,79a,to Flint River,23493,26301,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,102,102,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,43,43,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,110,110,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,29,29,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,75,75,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,103,103,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,66,66,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,108,108,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,126,126,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,119,119,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,4,4,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,14,14,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,93,93,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,64,64,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,39,39,NA,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,8,8,includes small dam and inflow of Chickasawhatchee Creek,NA,NA,NA,NA
-D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,95,95,NA,NA,NA,NA,NA
-D08,LENO,2021,2021_LENO_6,tombigbee,Tombigbee River,NA,773,773main,from top to bottom of flight box,13,52352,NA,NA
-D08,LENO,2021,2021_LENO_6,tombigbee,trib1,NA,773,773a,side channel on east,1213,52352,NA,NA
-D08,LENO,2021,2021_LENO_6,tombigbee,trib2,NA,773,773b,NA,1657,52352,NA,NA
-D08,LENO,2021,2021_LENO_6,tombigbee,trib3,NA,773,773c,NA,11788,52352,NA,NA
-D08,LENO,2021,2021_LENO_6,tombigbee,trib4,NA,773,773d,NA,50511,52352,NA,NA
-D08,LENO,2021,2021_LENO_6,tombigbee,trib5,NA,773,773e,NA,25206,52352,NA,NA
-D18,BARR,2019,2019_BARR_3,barr1,NA,NA,NA,NA,NA,NA,NA,NA,NA
-D18,BARR,2019,2019_BARR_3,barr2,NA,NA,NA,NA,NA,NA,NA,NA,NA
-D18,BARR,2019,2019_BARR_3,barr3,NA,NA,NA,NA,NA,NA,NA,NA,NA
-D18,BARR,2019,2019_BARR_3,barr4,NA,NA,NA,NA,NA,NA,NA,NA,NA
-D18,BARR,2019,2019_BARR_3,barr5,NA,NA,NA,NA,NA,NA,NA,NA,NA
-D18,BARR,2019,2019_BARR_3,barr6,NA,NA,NA,NA,NA,NA,NA,NA,NA
-D18,BARR,2019,2019_BARR_3,barr7,NA,NA,NA,NA,NA,NA,NA,NA,NA
-D18,BARR,2019,2019_BARR_3,barr8,NA,NA,NA,NA,NA,NA,NA,NA,NA
-D18,TOOL,2019,2019_TOOL_3,tool1,NA,NA,NA,NA,NA,NA,NA,NA,NA
-D18,TOOL,2019,2019_TOOL_3,tool2,NA,NA,NA,NA,NA,NA,NA,NA,NA
-D18,TOOL,2019,2019_TOOL_3,tool3,NA,NA,NA,NA,NA,NA,NA,NA,NA
-D18,TOOL,2019,2019_TOOL_3,tool4,NA,NA,NA,NA,NA,NA,NA,NA,NA
-D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,12,12,left side of flight box to bridge,875,541,NA,NA
-D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,37,37,between bridges,524,505,NA,NA
-D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,27,27,section north of West main street,489,2928,NA,NA
-D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,50,50,between bridges,2929,2968,NA,NA
-D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,8,8,bridge to ND 6,2969,4835,NA,NA
-D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,9,9,between ND 6 and ND 1806,4802,3763,NA,NA
-D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,7,7,ND 1806 to railroad bridge,3753,3165,NA,NA
-D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,24,24,bridge almost to confluence with Missouri River,3138,7076,NA,NA
-D02,BLAN,2021,2021_BLAN_4,shen,Shenandoah River,MNDWI,131,131,top of flight box to bridge,3329,16870,NA,NA
-D02,BLAN,2021,2021_BLAN_4,shen,Shenandoah River,MNDWI,119,119,bridge to south edge of flight box,16888,17546,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,Black Warrior River,MNDWI,1131,1131blwa,from top right of flight box to US 43,17094,83058,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131a,trib from Lake Demopolis,24548,83058,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131b,ditch from power plant,7076,83058,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131c,trib from Demopolis Lake,35657,83058,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,Yellow Creek,MNDWI,1131,1131d,Yellow Creek trib,71161,83058,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131e,unnamed trib,30646,83058,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131f,unnamed trib,34671,83058,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131g,unnamed trib,28912,83058,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131h,unnamed trib,58916,83058,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131i,French Creek below road,128770,83058,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1430,1430,French Creek above road,136040,128491,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,Black Warrior River into Tombigbee River,MNDWI,1021,1021main,from US 43 to end of flight box,82702,116585,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1021,1021a,unnamed trib with many forks,47226,116585,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1021,1021b,unnamed trib with many forks,66278,116585,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,Tombigbee River,MNDWI,684,684,top of flight box to break,2278,1560,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,Tombigbee River,MNDWI,160,160,between breaks,1398,819,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,Tombigbee River,MNDWI,292,292,between breaks,584,4154,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,Tombigbee River,MNDWI,291,291,break to left side of flight box,4683,5607,NA,NA
-D08,DELA,2021,2021_DELA_6,dela,Tombigbee River,MNDWI,1021,1131tomb,left edge top to left edge bottom,13741,116585,NA,NA
-D06,KONZ,2020,2020_KONZ_6,kansas,Kansas River,AWEI,227,227main,left edge of flight box to gap,NA,NA,NA,NA
-D06,KONZ,2020,2020_KONZ_6,kansas,McDowell Creek,AWEI,227,227a,tributary to Kansas river,NA,NA,NA,NA
-D06,KONZ,2020,2020_KONZ_6,kansas,Kansas River,AWEI,441,NA,gap to KS 177,NA,NA,NA,NA
-D06,KONZ,2020,2020_KONZ_6,kansas,Kansas River,AWEI,230,230main,KS 177 to right of flight box,NA,NA,NA,NA
-D06,KONZ,2020,2020_KONZ_6,kansas,Big Blue River,AWEI,230,230a,NA,NA,NA,NA,NA
-D06,KONZ,2020,2020_KONZ_6,kansas,Big Blue River,AWEI,175,175,NA,NA,NA,NA,NA
-D06,KONZ,2020,2020_KONZ_6,kansas,Big Blue River,AWEI,200,200,end of flight box to US 24,NA,NA,NA,NA
-D06,KONZ,2020,2020_KONZ_6,kansas,Elbo Creek,AWEI,200,200a,trib to Big Blue River,NA,NA,NA,NA
+domain,site,year,site_yr_id,river_group_id,river_name,water_index,polygon_id,seg_id,description,pt1,pt2
+D19,BONA,2021,2021_BONA_4,chatanika,Chatanika River,NA,175,175,east side of flight box to small bridge,390,2439
+D19,BONA,2021,2021_BONA_4,chatanika,Chatanika River,NA,145,145,small bridge to west side of flight box,2445,6164
+D12,YELL,2020,2020_YELL_3,yellowstone,Yellowstone River,NA,159,159main,north side of flight box to bridge,1,8695
+D12,YELL,2020,2020_YELL_3,yellowstone,Hellroaring Creek,NA,159,159a,tributary to yellowstone,1167,1
+D12,YELL,2020,2020_YELL_3,yellowstone,Lamar River,NA,159,159b,tributary to yellowstone,8424,1
+D12,YELL,2020,2020_YELL_3,yellowstone,Yellowstone River,NA,73,73a,bridge to south edge of flight box,8698,11084
+D12,YELL,2020,2020_YELL_3,yellowstone,Tower Creek,NA,73,73b,tributary to yellowstone including tower falls,10590,8698
+D12,YELL,2020,2020_YELL_3,yellowstone,Tower Creek,NA,82,82,upstream of tower falls,10700,10636
+D12,YELL,2020,2020_YELL_3,yellowstone,Tower Creek,NA,115,115,upstream of tower falls,10788,10730
+D12,YELL,2020,2020_YELL_3,yellowstone,Tower Creek,NA,7,7,upstream of Grand Loop Road,10915,10841
+D12,YELL,2020,2020_YELL_3,yellowstone,Tower Creek,NA,83,83,upstream of Grand Loop Road,11044,10931
+D12,YELL,2020,2020_YELL_3,yellowstone,Tower Creek,NA,94,94,upstream of campground,11451,11053
+D12,YELL,2020,2020_YELL_3,lava,Lava Creek,NA,NA,NA,"includes Undine Falls, spatially intermittent",NA,NA
+D06,UKFS,2020,2020_UKFS_5,kansas,Kansas River,NA,32,32,upstream of Bowerstock dam,246,4104
+D06,UKFS,2020,2020_UKFS_5,kansas,Kansas River,NA,1,1,between Kansas turnpike and Vermont street,4688,7951
+D06,UKFS,2020,2020_UKFS_5,kansas,Kansas River,NA,96,96,through and downstream of bowerstock dam,8654,12885
+D03,JERC,2021,2021_JERC_6,jerc,Flint River,NA,79,79main,top to bottom of flight box,5680,26301
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,79,79a,to Flint River,23493,26301
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,102,102,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,43,43,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,110,110,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,29,29,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,75,75,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,103,103,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,66,66,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,108,108,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,126,126,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,119,119,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,4,4,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,14,14,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,93,93,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,64,64,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,39,39,NA,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,8,8,includes small dam and inflow of Chickasawhatchee Creek,NA,NA
+D03,JERC,2021,2021_JERC_6,jerc,Ichawaynochoway Creek,NA,95,95,NA,NA,NA
+D08,LENO,2021,2021_LENO_6,tombigbee,Tombigbee River,NA,773,773main,from top to bottom of flight box,13,52352
+D08,LENO,2021,2021_LENO_6,tombigbee,trib1,NA,773,773a,side channel on east,1213,52352
+D08,LENO,2021,2021_LENO_6,tombigbee,trib2,NA,773,773b,NA,1657,52352
+D08,LENO,2021,2021_LENO_6,tombigbee,trib3,NA,773,773c,NA,11788,52352
+D08,LENO,2021,2021_LENO_6,tombigbee,trib4,NA,773,773d,NA,50511,52352
+D08,LENO,2021,2021_LENO_6,tombigbee,trib5,NA,773,773e,NA,25206,52352
+D18,BARR,2019,2019_BARR_3,barr1,NA,NA,NA,NA,NA,NA,NA
+D18,BARR,2019,2019_BARR_3,barr2,NA,NA,NA,NA,NA,NA,NA
+D18,BARR,2019,2019_BARR_3,barr3,NA,NA,NA,NA,NA,NA,NA
+D18,BARR,2019,2019_BARR_3,barr4,NA,NA,NA,NA,NA,NA,NA
+D18,BARR,2019,2019_BARR_3,barr5,NA,NA,NA,NA,NA,NA,NA
+D18,BARR,2019,2019_BARR_3,barr6,NA,NA,NA,NA,NA,NA,NA
+D18,BARR,2019,2019_BARR_3,barr7,NA,NA,NA,NA,NA,NA,NA
+D18,BARR,2019,2019_BARR_3,barr8,NA,NA,NA,NA,NA,NA,NA
+D18,TOOL,2019,2019_TOOL_3,tool1,NA,NA,NA,NA,NA,NA,NA
+D18,TOOL,2019,2019_TOOL_3,tool2,NA,NA,NA,NA,NA,NA,NA
+D18,TOOL,2019,2019_TOOL_3,tool3,Kuparuk River,MNDWI,304,304,top of flight box tp AK 11 Dalton Highway,1,1774
+D18,TOOL,2019,2019_TOOL_3,tool3,Kuparuk River,MNDWI,193,193main,Dalton highway south,1775,4716
+D18,TOOL,2019,2019_TOOL_3,tool3,Kuparuk River,MNDWI,193,193a,tributary,2777,4716
+D18,TOOL,2019,2019_TOOL_3,tool3,Kuparuk River,MNDWI,289,289,headwater,4717,4992
+D18,TOOL,2019,2019_TOOL_3,tool4,NA,NA,NA,NA,NA,NA,NA
+D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,12,12,left side of flight box to bridge,875,541
+D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,37,37,between bridges,524,505
+D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,27,27,section north of West main street,489,2928
+D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,50,50,between bridges,2929,2968
+D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,8,8,bridge to ND 6,2969,4835
+D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,9,9,between ND 6 and ND 1806,4802,3763
+D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,7,7,ND 1806 to railroad bridge,3753,3165
+D09,NOGP,2021,2021_NOGP_5,heart,Heart River,AWEI,24,24,bridge almost to confluence with Missouri River,3138,7076
+D02,BLAN,2021,2021_BLAN_4,shen,Shenandoah River,MNDWI,131,131,top of flight box to bridge,3329,16870
+D02,BLAN,2021,2021_BLAN_4,shen,Shenandoah River,MNDWI,119,119,bridge to south edge of flight box,16888,17546
+D08,DELA,2021,2021_DELA_6,dela,Black Warrior River,MNDWI,1131,1131blwa,from top right of flight box to US 43,17094,83058
+D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131a,trib from Lake Demopolis,24548,83058
+D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131b,ditch from power plant,7076,83058
+D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131c,trib from Demopolis Lake,35657,83058
+D08,DELA,2021,2021_DELA_6,dela,Yellow Creek,MNDWI,1131,1131d,Yellow Creek trib,71161,83058
+D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131e,unnamed trib,30646,83058
+D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131f,unnamed trib,34671,83058
+D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131g,unnamed trib,28912,83058
+D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131h,unnamed trib,58916,83058
+D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1131,1131i,French Creek below road,128770,83058
+D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1430,1430,French Creek above road,136040,128491
+D08,DELA,2021,2021_DELA_6,dela,Black Warrior River into Tombigbee River,MNDWI,1021,1021main,from US 43 to end of flight box,82702,116585
+D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1021,1021a,unnamed trib with many forks,47226,116585
+D08,DELA,2021,2021_DELA_6,dela,NA,MNDWI,1021,1021b,unnamed trib with many forks,66278,116585
+D08,DELA,2021,2021_DELA_6,dela,Tombigbee River,MNDWI,684,684,top of flight box to break,2278,1560
+D08,DELA,2021,2021_DELA_6,dela,Tombigbee River,MNDWI,160,160,between breaks,1398,819
+D08,DELA,2021,2021_DELA_6,dela,Tombigbee River,MNDWI,292,292,between breaks,584,4154
+D08,DELA,2021,2021_DELA_6,dela,Tombigbee River,MNDWI,291,291,break to left side of flight box,4683,5607
+D08,DELA,2021,2021_DELA_6,dela,Tombigbee River,MNDWI,1021,1131tomb,left edge top to left edge bottom,13741,116585
+D06,KONZ,2020,2020_KONZ_6,kansas,Kansas River,AWEI,227,227main,left edge of flight box to gap,32518,8889
+D06,KONZ,2020,2020_KONZ_6,kansas,McDowell Creek,AWEI,227,227a,tributary to Kansas river,31507,8889
+D06,KONZ,2020,2020_KONZ_6,kansas,Kansas River,AWEI,441,441,gap to KS 177,8888,7785
+D06,KONZ,2020,2020_KONZ_6,kansas,Kansas River,AWEI,230,230main,KS 177 to right of flight box,7776,3157
+D06,KONZ,2020,2020_KONZ_6,kansas,Big Blue River,AWEI,230,230a,RR bridge to Kansas River,2685,3157
+D06,KONZ,2020,2020_KONZ_6,kansas,Big Blue River,AWEI,175,175,betweenUS24 and RR bridge,2492,2558
+D06,KONZ,2020,2020_KONZ_6,kansas,Big Blue River,AWEI,200,200,end of flight box to US 24,120,2449
+D06,KONZ,2020,2020_KONZ_6,kansas,Elbo Creek,AWEI,200,200a,trib to Big Blue River,919,2449
+D06,KONZ,2020,2020_KONZ_6,bigblue,Big Blue River,AWEI,25,25,just below Turtle Creek Dam to gap,1201,2406
+D06,KONZ,2020,2020_KONZ_6,bigblue,Big Blue River,AWEI,14,14,gap to gap,4647,9508
