@@ -21,6 +21,8 @@ library(stars)
 library(scico)
 library(ggplot2)
 library(whitebox)
+library(smoothr)
+library(leaflet)
 ```
 
 # river mosaic to smooth polygons
