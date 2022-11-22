@@ -1,0 +1,74 @@
+---
+title: "narwdith"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+nar_sf <- st_read('S:/users/khondula/DATA/NARWidth_v01/NARWidth_v01.shp')
+```
+
+```{r}
+# gg <- ggplot() +
+#   geom_sf(data = nar_sf) + 
+#   theme_void() +
+#   theme(legend.position = 'none')
+# ggsave('narwidth.png', gg)
+```
+
+buffer each flight box 1 km and crop narwidth
+
+```{r}
+fboxes_sf <- st_read('H:/DATA/spatial/aop_boxes/fboxes_nodups.shp')%>% st_transform(4326)
+fboxes_buff <- fboxes_sf %>% st_transform(4326) %>% st_buffer(1000)
+
+blan_sf <- dplyr::filter(fboxes_sf, siteID == 'BLAN')
+blan_buff <- dplyr::filter(fboxes_buff, siteID == 'BLAN')
+plot(blan_sf$geometry, add = TRUE)
+plot(blan_buff$geometry)
+nar_blan <- nar_sf %>% st_crop(blan_buff)
+plot(nar_blan$geometry, add = TRUE, col = 'blue')
+
+gg <- ggplot() +
+  geom_sf(data = blan_buff) +
+  geom_sf(data = blan_sf) +
+  geom_sf(data = nar_sf, col = 'blue') +
+  theme_minimal() +
+  ggtitle('NARWidth in BLAN')
+
+save_nar_fbox <- function(siteid){
+  site_sf <- dplyr::filter(fboxes_sf, siteID == glue('{siteid}')) %>% st_union()
+  site_buff <- site_sf %>% st_buffer(1000)
+  message(glue('checking {siteid} for rivers'))
+  nar_site <- nar_sf %>% st_crop(site_buff)
+  if(nrow(nar_site)>0){
+    message(glue('nawidth rivers detected in {siteid}'))
+  out_dir <- 'H:/DATA/spatial/narwidth_aop'
+  st_write(nar_site, glue('{out_dir}/{siteid}-narwidth.shp'))
+  
+  gg <- ggplot() +
+    geom_sf(data = site_buff) +
+    geom_sf(data = site_sf) +
+    geom_sf(data = nar_site, col = 'blue') +
+    theme_minimal() +
+    ggtitle(glue('NARWidth in {siteid}'))
+  ggsave(glue('figs/narwidth/{siteid}.png'), gg)    
+  }
+
+}
+unique(fboxes_sf$siteID)[51:58] %>% purrr::walk(~save_nar_fbox(.x)) # 58 total
+save_nar_fbox('SYCA')
+```
+
+```{r}
+rivs_in_fbox <- st_within(fboxes_buff, nar_sf, sparse = FALSE)
+check_rivs <- any(apply(rivs_in_fbox, 1, any))
+rivs_in_fbox_sf <- nar_sf[which(rivs_in_fbox[,1]),]
+st_write(rivs_in_fbox_sf, 'H:/DATA/spatial/narwidth_xAOP.shp')
+```
+

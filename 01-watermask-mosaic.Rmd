@@ -29,8 +29,10 @@ data_dir <- 'S:/users/khondula/DATA'
 fs::dir_ls(glue('{data_dir}/centerlines/01_watermask-imgs')) %>% basename()
 fs::dir_ls(glue('{data_dir}/centerlines/01_AWEI')) %>% basename()
 
-my_site_yr <- fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename() %>%
-  grep('TOOL', x = ., value = TRUE)
+my_site_yrs <- fs::dir_ls(glue('{data_dir}/centerlines/01_mNDWI')) %>% basename() %>%
+  grep('BLAN', x = ., value = TRUE)
+my_site_yrs
+my_site_yr <- grep('2019', my_site_yrs, value = TRUE)
 my_site_yr
 ```
 
@@ -46,7 +48,7 @@ if(length(mask_files)>300){message('lots of files gdal might not be happy!')}
 # mosaic with gdal
 
 ```{r}
-gdalcommand <- glue::glue('gdalbuildvrt tmp/mosaic.vrt {glue_collapse(mask_files[1:300], sep = " ")}')
+gdalcommand <- glue::glue('gdalbuildvrt tmp/mosaic.vrt {glue_collapse(mask_files, sep = " ")}')
 system(gdalcommand)
 ```
 
@@ -55,8 +57,8 @@ gdalcommand2 <- glue('gdal_translate -of GTiff tmp/mosaic.vrt tmp/mosaic-{my_sit
 system(gdalcommand2)
 
 m <- terra::rast(glue('tmp/mosaic-{my_site_yr}.tif'))
-m %>% writeRaster(glue('{data_dir}/centerlines/02_watermask-mosaics/{my_site_yr}-MNDWI.tif'), overwrite = TRUE)
 plot(m)
+m %>% writeRaster(glue('{data_dir}/centerlines/02_watermask-mosaics/{my_site_yr}-MNDWI.tif'), overwrite = TRUE)
 ```
 
 ```{r}
@@ -95,7 +97,7 @@ mask_files <- fs::dir_ls(mask_dir, glob = glue('*.tif')) %>% as.character()
 # mosaic with gdal
 
 ```{r}
-gdalcommand <- glue::glue('gdalbuildvrt mosaic2.vrt {glue_collapse(mask_files[1:300], sep = " ")}')
+gdalcommand <- glue::glue('gdalbuildvrt mosaic2.vrt {glue_collapse(mask_files, sep = " ")}')
 system(gdalcommand)
 gdalcommand2 <- glue('gdal_translate -of GTiff mosaic2.vrt tmp/mosaic-{my_site_yr}.tif')
 system(gdalcommand2)

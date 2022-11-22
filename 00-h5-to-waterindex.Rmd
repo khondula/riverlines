@@ -28,8 +28,8 @@ library(ggplot2)
 
 ```{r}
 my_aop_yr <- '2020'
-my_aop_site <- 'MCDI'
-my_domain <- 'D06'
+my_aop_site <- 'NOGP'
+my_domain <- 'D09'
 ```
 
 get all L3 files for site
@@ -39,6 +39,7 @@ my_site_dir <- glue('D:/{my_aop_yr}/FullSite/{my_domain}') %>%
   fs::dir_ls(glob = glue('*{my_aop_site}*'), type = 'directory')
 my_site_files <- glue('{my_site_dir}/L3/Spectrometer/Reflectance') %>%
   fs::dir_ls(glob = '*.h5', recurse = TRUE)
+length(my_site_files)
 ```
 
 
